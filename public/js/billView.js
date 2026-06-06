@@ -50,7 +50,10 @@ window.renderBillView = async function (container, id) {
                 if (c.role === 'sl') return `<td class="text-center">${li.sl_no}</td>`;
                 if (c.role === 'rate') return `<td class="text-right">${formatCurrency(li.rate)}</td>`;
                 if (c.role === 'amount') return `<td class="text-right font-bold">${formatCurrency(li.amount)}</td>`;
-                const val = cv[c.name] !== undefined ? cv[c.name] : '';
+                let val = cv[c.name] !== undefined ? cv[c.name] : '';
+                if (c.type === 'number' && val !== '') {
+                    val = parseFloat(parseFloat(val).toFixed(2));
+                }
                 const align = c.type === 'number' ? ' class="text-right"' : '';
                 return `<td${align}>${val}</td>`;
             }).join('') + '</tr>';
@@ -63,7 +66,7 @@ window.renderBillView = async function (container, id) {
             if (c.role === 'amount') return `<td class="text-right font-bold">${formatCurrency(bill.subtotal)}</td>`;
             if (c.type === 'number' || c.role === 'qty') {
                 const sum = bill.lineItems.reduce((s, li) => s + (parseFloat(li.col_values[c.name]) || 0), 0);
-                return `<td class="text-right font-bold">${sum}</td>`;
+                return `<td class="text-right font-bold">${parseFloat(sum.toFixed(2))}</td>`;
             }
             return '<td>&nbsp;</td>';
         }).join('') + '</tr>';
