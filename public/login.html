@@ -62,7 +62,7 @@
                     throw new Error(data.error || 'Login failed');
                 }
 
-                window.location.href = '/';
+                window.location.href = '/dashboard';
             } catch (err) {
                 errorEl.textContent = err.message;
                 errorEl.style.display = 'block';
@@ -73,7 +73,7 @@
 
         // If already logged in, redirect
         fetch('/api/auth/me').then(res => {
-            if (res.ok) window.location.href = '/';
+            if (res.ok) window.location.href = '/dashboard';
         });
     </script>
 </body>

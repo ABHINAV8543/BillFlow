@@ -37,7 +37,7 @@ app.use('/api/users', requireAuth, require('./routes/users'));
 // Fallback: SPA support
 app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+        res.sendFile(path.join(__dirname, 'public', 'app.html'));
     } else {
         res.status(404).json({ error: 'API route not found' });
     }
