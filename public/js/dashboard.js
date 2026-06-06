@@ -12,7 +12,7 @@ window.renderDashboard = async function (container) {
                     <div class="metric-label">Total Revenue</div>
                     <div class="metric-value">${formatCurrency(data.totalRevenue)}</div>
                     <div class="metric-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12"/><path d="M6 8h12"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/><path d="m6 13 8.5 8"/></svg>
                     </div>
                 </div>
                 <div class="metric-card paid">
