@@ -109,11 +109,13 @@ window.renderBillView = async function (container, id) {
                 </div>
 
                 <!-- GSTIN / PAN / WEF -->
+                ${(o.company_gstin || o.company_pan || o.company_wef) ? `
                 <div class="bill-section bill-info-bar">
                     ${o.company_gstin ? `<span>GSTIN: ${o.company_gstin}</span>` : ''}
                     ${o.company_pan ? `<span>PAN No.: ${o.company_pan}</span>` : ''}
                     ${o.company_wef ? `<span>W E F: ${o.company_wef}</span>` : ''}
                 </div>
+                ` : ''}
 
                 <!-- Recipient + Serial/Date -->
                 <div class="bill-section bill-recipient-section">
@@ -148,8 +150,8 @@ window.renderBillView = async function (container, id) {
                     <div class="bill-calculations"${banks.length === 0 ? ' style="width:100%; border:1px solid #000;"' : ''}>
                         <div class="calc-row"><span>Net Amount:</span><span>${formatCurrency(bill.subtotal)}</span></div>
                         <div class="calc-row"><span>Other Charges (If any):</span><span>${formatCurrency(bill.other_charges)}</span></div>
-                        <div class="calc-row"><span>Add CGST@${bill.cgst_rate}%:</span><span>${formatCurrency(bill.cgst_amount)}</span></div>
-                        <div class="calc-row"><span>Add SGST@${bill.sgst_rate}%:</span><span>${formatCurrency(bill.sgst_amount)}</span></div>
+                        ${bill.cgst_amount > 0 ? `<div class="calc-row"><span>Add CGST@${bill.cgst_rate}%:</span><span>${formatCurrency(bill.cgst_amount)}</span></div>` : ''}
+                        ${bill.sgst_amount > 0 ? `<div class="calc-row"><span>Add SGST@${bill.sgst_rate}%:</span><span>${formatCurrency(bill.sgst_amount)}</span></div>` : ''}
                         <div class="calc-row"><span>Round Off:</span><span>${bill.round_off >= 0 ? '' : '-'}${formatCurrency(Math.abs(bill.round_off))}</span></div>
                         <div class="calc-row grand"><span>Total Amount:</span><span>${formatCurrency(bill.grand_total)}</span></div>
                     </div>
@@ -166,7 +168,6 @@ window.renderBillView = async function (container, id) {
                 <!-- Signature -->
                 <div class="bill-section bill-signature">
                     <div class="sig-line">Prop./Authorised Signatory</div>
-                    <div class="sig-company">For- ${o.company_name || ''}</div>
                 </div>
             </div>
         `;

@@ -192,7 +192,7 @@ table { border-collapse: collapse; width: 100%; }
 }
 .bill-center { text-align: center; }
 .bill-type { font-size: 16px; font-weight: 700; letter-spacing: 2px; color: #c00; margin-bottom: 6px; }
-.bill-company-name { font-size: 26px; font-weight: 900; letter-spacing: 1px; line-height: 1.2; }
+.bill-company-name { font-size: 34px; font-weight: 900; letter-spacing: 1px; line-height: 1.2; }
 .bill-subtitle { font-size: 13px; font-weight: 700; margin-top: 4px; }
 .bill-address { font-size: 13px; font-weight: 700; margin-top: 4px; letter-spacing: 0.3px; }
 .bill-phones-center { font-size: 12px; margin-top: 6px; font-weight: 600; }
@@ -303,7 +303,7 @@ table { border-collapse: collapse; width: 100%; }
     .form-grid { grid-template-columns: 1fr; }
     .metrics-grid { grid-template-columns: 1fr; }
     .bill-page { font-size: 11px; padding: 16px; }
-    .bill-company-name { font-size: 20px; }
+    .bill-company-name { font-size: 28px; }
     .bill-recipient-section { flex-direction: column; }
     .bill-serial-box { width: 100%; border-right: none; border-top: 1px solid #000; }
     .bill-bottom { flex-direction: column; }
