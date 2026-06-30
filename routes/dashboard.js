@@ -9,13 +9,12 @@ router.get('/', async (req, res) => {
         const filter = isAdmin ? {} : { user_id: req.user._id };
 
         // Run all queries in parallel
-        const [revenueResult, totalBills, totalClients, recentBills] = await Promise.all([
+        const [revenueResult, totalBills, recentBills] = await Promise.all([
             Bill.aggregate([
                 { $match: filter },
                 { $group: { _id: null, total: { $sum: '$grand_total' } } }
             ]),
             Bill.countDocuments(filter),
-            Client.countDocuments(isAdmin ? {} : { user_id: req.user._id }),
             Bill.find(filter)
                 .sort({ createdAt: -1 })
                 .limit(5)
@@ -41,7 +40,6 @@ router.get('/', async (req, res) => {
             user: req.user,
             totalRevenue,
             totalBills,
-            totalClients,
             recentBills: parsedRecentBills
         });
     } catch (err) {

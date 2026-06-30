@@ -140,7 +140,14 @@ router.get('/:id', async (req, res) => {
 
         const bill = await Bill.findOne(filter).populate('client_id');
         if (!bill) {
+            if (req.originalUrl.startsWith('/api')) {
+                return res.status(404).json({ error: 'Bill not found' });
+            }
             return res.status(404).render('error', { message: 'Bill not found' });
+        }
+
+        if (req.originalUrl.startsWith('/api')) {
+            return res.json(bill);
         }
 
         // Get the owner user for company profile / bill columns

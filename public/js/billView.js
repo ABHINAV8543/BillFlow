@@ -32,7 +32,7 @@ window.renderBillView = async function (container, idOrData) {
         // ── Build a SINGLE ordered column list ──
         // Each entry: { name, type, role, width }
         // role = 'sl' | 'data' | 'qty' | 'rate' | 'amount'
-        const allCols = [{ name: 'Sl.', type: 'serial', role: 'sl', width: 8 }];
+        const allCols = [{ name: 'Sl.', type: 'serial', role: 'sl', width: 12 }];
 
         cols.forEach(c => {
             if (c.is_rate) {

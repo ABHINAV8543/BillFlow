@@ -14,7 +14,7 @@ window.renderBillForm = async function (container, editId) {
         } catch { container.innerHTML = '<div class="empty-state"><p>Failed to load bill template. Please set up your profile first.</p></div>'; return; }
     }
 
-    if (!profile.billColumns || profile.billColumns.length === 0) {
+    if (!profile.bill_columns || profile.bill_columns.length === 0) {
         container.innerHTML = '<div class="empty-state"><p>No bill columns configured. <a href="/profile" style="color:var(--accent);font-weight:600;">Set up your bill template →</a></p></div>';
         return;
     }
@@ -33,9 +33,9 @@ window.renderBillForm = async function (container, editId) {
     }
 
     const isEdit = !!existingBill;
-    const columns = profile.billColumns;
-    const recipientFields = profile.recipientFields || [];
-    const footerFields = profile.footerFields || [];
+    const columns = profile.bill_columns;
+    const recipientFields = profile.recipient_fields || [];
+    const footerFields = profile.footer_fields || [];
     const rateCol = columns.find(c => c.is_rate);
     const qtyCol = columns.find(c => c.is_qty);
     const amountCol = columns.find(c => c.is_amount);
@@ -169,7 +169,7 @@ window.renderBillForm = async function (container, editId) {
         }
         if (rateCol) {
             const rateVal = prefill ? (prefill.rate / 100).toFixed(2) : '';
-            cells += `<td><input class="form-input price-input rate-input" type="number" min="0" step="0.01" data-col="${rateCol.col_name}" placeholder="0.00" value="${rateVal}"></td>`;
+            cells += `<td><input class="form-input price-input rate-input" type="number" min="0" step="0.01" data-col="${rateCol.col_name}" placeholder="${rateCol.col_name}" value="${rateVal}"></td>`;
         }
         if (amountCol) {
             const amtVal = prefill ? fmtINR(prefill.amount / 100) : '₹0.00';
@@ -319,7 +319,7 @@ window.renderBillForm = async function (container, editId) {
             if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
             const result = await res.json();
             showToast(isEdit ? 'Bill updated!' : 'Bill generated!');
-            navigateTo(`#/bill/${result.id}`);
+            window.location.href = '/bills/' + result.id;
         } catch (err) {
             showToast(err.message, 'error');
             submitBtn.disabled = false;

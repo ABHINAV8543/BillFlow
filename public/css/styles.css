@@ -145,12 +145,31 @@ table { border-collapse: collapse; width: 100%; }
 
 /* --- Line Items Table (Form) --- */
 .line-items-section { margin-top: 24px; }
-.line-items-table { width: 100%; margin-bottom: 12px; }
-.line-items-table th { text-align: left; padding: 8px 12px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); border-bottom: 2px solid var(--border); }
-.line-items-table td { padding: 8px 12px; }
+.line-items-table { width: 100%; display: block; }
+.line-items-table thead { display: none; }
+.line-items-table tbody { display: flex; flex-direction: column; gap: 12px; }
+.line-items-table tr { 
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 12px; 
+    align-items: center; 
+    background: var(--surface-hover); 
+    padding: 16px; 
+    border-radius: var(--radius-sm); 
+    border: 1px solid var(--border); 
+}
+.line-items-table td {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    border: none;
+    flex: 1 1 160px;
+}
+.line-items-table td:first-child { flex: 0 0 30px; align-items: center; justify-content: center; font-size: 1.1rem; }
+.line-items-table td:last-child { flex: 0 0 auto; align-items: flex-end; justify-content: center; }
 .line-items-table .form-input { width: 100%; }
-.line-items-table .price-input { width: 110px; }
-.line-item-total { font-weight: 600; color: var(--text-primary); min-width: 100px; }
+.line-items-table .price-input { width: 100%; }
+.line-item-total { font-weight: 600; color: var(--text-primary); font-size: 1.1rem; padding: 4px 8px; }
 
 /* --- Totals section (bill form only — scoped to avoid conflicting with bill-table .total-row) --- */
 .totals-section { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; padding: 20px 0; border-top: 2px solid var(--border); margin-top: 16px; }

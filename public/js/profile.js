@@ -53,7 +53,7 @@ window.renderProfile = async function (container, preloadedProfile) {
             <div class="card" style="padding:28px;">
                 <h2 class="section-title" style="margin-bottom:20px;">Bill Item Columns</h2>
                 <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px;">Define the columns for your bill's line items table. Mark one column as Rate and one as Amount.</p>
-                <div id="columns-list">${(profile.billColumns || []).map((c, i) => columnRowHTML(c, i)).join('')}</div>
+                <div id="columns-list">${(profile.bill_columns || []).map((c, i) => columnRowHTML(c, i)).join('')}</div>
                 <button type="button" class="btn btn-secondary btn-sm" id="add-col-btn" style="margin-top:12px;">+ Add Column</button>
                 <div style="margin-top:16px;text-align:right;"><button type="button" class="btn btn-primary" id="save-cols-btn">Save Columns</button></div>
             </div>
@@ -62,7 +62,7 @@ window.renderProfile = async function (container, preloadedProfile) {
             <div class="card" style="padding:28px;">
                 <h2 class="section-title" style="margin-bottom:20px;">Recipient Fields</h2>
                 <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px;">Define what details you collect from the bill recipient (purchaser).</p>
-                <div id="recipient-list">${(profile.recipientFields || []).map((f, i) => fieldRowHTML(f, i, 'recipient')).join('')}</div>
+                <div id="recipient-list">${(profile.recipient_fields || []).map((f, i) => fieldRowHTML(f, i, 'recipient')).join('')}</div>
                 <button type="button" class="btn btn-secondary btn-sm" id="add-recipient-btn" style="margin-top:12px;">+ Add Field</button>
                 <div style="margin-top:16px;text-align:right;"><button type="button" class="btn btn-primary" id="save-recipient-btn">Save Recipient Fields</button></div>
             </div>
@@ -71,7 +71,7 @@ window.renderProfile = async function (container, preloadedProfile) {
             <div class="card" style="padding:28px;">
                 <h2 class="section-title" style="margin-bottom:20px;">Footer Fields</h2>
                 <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px;">Additional fields shown at the bottom of the bill (e.g. E-Way Bill No., Transporter).</p>
-                <div id="footer-list">${(profile.footerFields || []).map((f, i) => fieldRowHTML(f, i, 'footer')).join('')}</div>
+                <div id="footer-list">${(profile.footer_fields || []).map((f, i) => fieldRowHTML(f, i, 'footer')).join('')}</div>
                 <button type="button" class="btn btn-secondary btn-sm" id="add-footer-btn" style="margin-top:12px;">+ Add Field</button>
                 <div style="margin-top:16px;text-align:right;"><button type="button" class="btn btn-primary" id="save-footer-btn">Save Footer Fields</button></div>
             </div>
@@ -162,7 +162,7 @@ window.renderProfile = async function (container, preloadedProfile) {
             // Refresh cached profile
             const pRes = await fetch('/api/profile');
             if (pRes.ok) window.userProfile = await pRes.json();
-        } catch { showToast('Failed to save.', 'error'); }
+        } catch (err) { console.error(err); showToast('Failed to save.', 'error'); }
     });
 
     // Save banks
@@ -186,7 +186,7 @@ window.renderProfile = async function (container, preloadedProfile) {
             showToast('Bank details saved.');
             const pRes = await fetch('/api/profile');
             if (pRes.ok) window.userProfile = await pRes.json();
-        } catch { showToast('Failed to save.', 'error'); }
+        } catch (err) { console.error(err); showToast('Failed to save.', 'error'); }
     });
 
     // Save columns
@@ -212,7 +212,7 @@ window.renderProfile = async function (container, preloadedProfile) {
             showToast('Bill columns saved.');
             const pRes = await fetch('/api/profile');
             if (pRes.ok) window.userProfile = await pRes.json();
-        } catch { showToast('Failed to save.', 'error'); }
+        } catch (err) { console.error(err); showToast('Failed to save.', 'error'); }
     });
 
     // Save recipient fields
@@ -231,7 +231,7 @@ window.renderProfile = async function (container, preloadedProfile) {
             showToast('Recipient fields saved.');
             const pRes = await fetch('/api/profile');
             if (pRes.ok) window.userProfile = await pRes.json();
-        } catch { showToast('Failed to save.', 'error'); }
+        } catch (err) { console.error(err); showToast('Failed to save.', 'error'); }
     });
 
     // Save footer fields
@@ -250,6 +250,6 @@ window.renderProfile = async function (container, preloadedProfile) {
             showToast('Footer fields saved.');
             const pRes = await fetch('/api/profile');
             if (pRes.ok) window.userProfile = await pRes.json();
-        } catch { showToast('Failed to save.', 'error'); }
+        } catch (err) { console.error(err); showToast('Failed to save.', 'error'); }
     });
 };

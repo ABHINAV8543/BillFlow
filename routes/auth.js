@@ -23,7 +23,7 @@ router.post('/login', async (req, res) => {
 
         // Create session
         req.session.userId = user._id;
-        res.redirect('/dashboard');
+        res.json({ success: true, redirect: '/dashboard' });
     } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({ error: 'Login failed' });
