@@ -45,7 +45,7 @@ window.renderBillForm = async function (container, editId) {
     let lineItemCount = 0;
 
     // Pre-fill data from existing bill
-    const existingRecipient = isEdit ? (existingBill.recipient_data || {}) : {};
+    const existingRecipient = isEdit && existingBill.client_id ? (existingBill.client_id.recipient_data || {}) : {};
     const existingFooter = isEdit ? (existingBill.footer_data || {}) : {};
 
     // Build recipient fields HTML

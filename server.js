@@ -93,7 +93,7 @@ if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
     async function start() {
         await connectDB();
         app.listen(PORT, () => {
-            console.log(`🚀 E-Billing Dashboard server running at http://localhost:${PORT}`);
+            console.log(`E-Billing Dashboard server running at http://localhost:${PORT}`);
         });
     }
 

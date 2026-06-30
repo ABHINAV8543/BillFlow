@@ -25,7 +25,7 @@ window.renderBillView = async function (container, idOrData) {
         
         const o = bill.owner; // company profile
         const cols = bill.billColumns || [];
-        const rd = bill.recipient_data || {};
+        const rd = bill.client_id ? (bill.client_id.recipient_data || {}) : {};
         const fd = bill.footer_data || {};
         const banks = o.bank_details || [];
 
