@@ -1,0 +1,21 @@
+<%- include('partials/header') %>
+
+<div id="profile-container"></div>
+
+<!-- Inject variables for profile.js -->
+<script>
+    // Build the profile object expected by profile.js
+    const profileData = <%- JSON.stringify(profile) %>;
+</script>
+
+<script src="/js/profile.js?v=2"></script>
+
+<script>
+    // Initialize the profile view when the page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        const container = document.getElementById('profile-container');
+        window.renderProfile(container, profileData);
+    });
+</script>
+
+<%- include('partials/footer') %>

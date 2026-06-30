@@ -1,0 +1,48 @@
+        </div><!-- .content-area -->
+    </main><!-- .main-wrapper -->
+    <div class="toast-container" id="toast-container"></div>
+    <script>
+        // Set header date
+        (function() {
+            var dateEl = document.getElementById('header-date');
+            if (dateEl) {
+                var now = new Date();
+                dateEl.textContent = now.toLocaleDateString('en-IN', {
+                    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+                });
+            }
+        })();
+
+        // Mobile hamburger toggle
+        (function() {
+            var hamburger = document.getElementById('hamburger');
+            var sidebar = document.getElementById('sidebar');
+            var overlay = document.getElementById('sidebar-overlay');
+            if (hamburger && sidebar && overlay) {
+                hamburger.addEventListener('click', function() {
+                    sidebar.classList.toggle('open');
+                    overlay.classList.toggle('show');
+                });
+                overlay.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    overlay.classList.remove('show');
+                });
+            }
+        })();
+
+        // Toast notification function
+        window.showToast = function(message, type) {
+            type = type || 'success';
+            var container = document.getElementById('toast-container');
+            if (!container) return;
+            var toast = document.createElement('div');
+            toast.className = 'toast ' + type;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(function() {
+                toast.remove();
+            }, 3000);
+        };
+    </script>
+</body>
+</html>

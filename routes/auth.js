@@ -1,12 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const db = require('../db/connection');
+const User = require('../models/User');
 
-/**
- * POST /api/auth/login
- * Body: { username, password }
- */
 router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -15,30 +11,19 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'Username and password are required' });
         }
 
-        const result = await db.execute({
-            sql: 'SELECT * FROM users WHERE username = ?',
-            args: [username]
-        });
-        const user = result.rows[0];
-
+        const user = await User.findOne({ username });
         if (!user) {
             return res.status(401).json({ error: 'Invalid username or password' });
         }
 
-        const valid = bcrypt.compareSync(password, user.password_hash);
+        const valid = await bcrypt.compare(password, user.password_hash);
         if (!valid) {
             return res.status(401).json({ error: 'Invalid username or password' });
         }
 
         // Create session
-        req.session.userId = user.id;
-        res.json({
-            id: user.id,
-            username: user.username,
-            display_name: user.display_name,
-            email: user.email,
-            role: user.role
-        });
+        req.session.userId = user._id;
+        res.redirect('/dashboard');
     } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({ error: 'Login failed' });
@@ -46,39 +31,15 @@ router.post('/login', async (req, res) => {
 });
 
 /**
- * POST /api/auth/logout
+ * POST /auth/logout
+ * Destroys session and redirects to landing page.
  */
 router.post('/logout', (req, res) => {
-    req.session = null;
-    res.clearCookie('session');
-    res.json({ message: 'Logged out successfully' });
-});
-
-/**
- * GET /api/auth/me
- * Returns the current authenticated user or 401.
- */
-router.get('/me', async (req, res) => {
-    if (!req.session || !req.session.userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    try {
-        const result = await db.execute({
-            sql: 'SELECT id, username, display_name, email, role FROM users WHERE id = ?',
-            args: [req.session.userId]
-        });
-        const user = result.rows[0];
-
-        if (!user) {
-            return res.status(401).json({ error: 'User not found' });
-        }
-
-        res.json(user);
-    } catch (err) {
-        console.error('Auth check error:', err);
-        res.status(500).json({ error: 'Database error' });
-    }
+    req.session.destroy(err => {
+        if (err) console.error('Logout error:', err);
+        res.clearCookie('connect.sid');
+        res.redirect('/');
+    });
 });
 
 module.exports = router;

@@ -1,0 +1,25 @@
+<%- include('../partials/header') %>
+
+<% function formatCurrency(paise) { return '₹' + (paise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); } %>
+
+<div id="bill-view-container"></div>
+
+<!-- Inject variables for billView.js -->
+<script>
+    // Build the bill object expected by billView.js
+    const billData = <%- JSON.stringify(bill) %>;
+    billData.owner = <%- JSON.stringify(owner) %>;
+    billData.billColumns = <%- JSON.stringify(billColumns) %>;
+</script>
+
+<script src="/js/billView.js?v=3"></script>
+
+<script>
+    // Initialize the view when the page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        const container = document.getElementById('bill-view-container');
+        window.renderBillView(container, billData);
+    });
+</script>
+
+<%- include('../partials/footer') %>

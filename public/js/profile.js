@@ -1,16 +1,21 @@
 /**
  * profile.js — Company Profile & Bill Template Configuration
  */
-window.renderProfile = async function (container) {
+window.renderProfile = async function (container, preloadedProfile) {
     let profile;
-    try {
-        const res = await fetch('/api/profile');
-        profile = await res.json();
-        window.userProfile = profile;
-    } catch {
-        container.innerHTML = '<div class="empty-state"><p>Failed to load profile.</p></div>';
-        return;
+    if (preloadedProfile) {
+        profile = preloadedProfile;
+    } else {
+        try {
+            const res = await fetch('/api/profile');
+            if (!res.ok) throw new Error('Failed to load profile');
+            profile = await res.json();
+        } catch (err) {
+            container.innerHTML = `<div class="empty-state"><p>${err.message}</p></div>`;
+            return;
+        }
     }
+    window.userProfile = profile;
 
     const banks = profile.bank_details || [];
 

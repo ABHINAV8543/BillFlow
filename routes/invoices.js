@@ -2,9 +2,6 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/connection');
 
-/**
- * Generate a unique invoice number: INV-YYYYMMDD-XXXX
- */
 function generateInvoiceNumber() {
     const now = new Date();
     const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');

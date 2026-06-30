@@ -1,6 +1,0 @@
-node_modules/
-.git/
-.env
-db/billing.db
-db/billing.db-wal
-db/billing.db-shm

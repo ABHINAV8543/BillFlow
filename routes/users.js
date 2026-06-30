@@ -1,33 +1,40 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const db = require('../db/connection');
+const User = require('../models/User');
+const Bill = require('../models/Bill');
+const Client = require('../models/Client');
 const { requireAdmin } = require('../middleware/auth');
 
 // All routes in this file require admin
 router.use(requireAdmin);
 
-/**
- * GET /api/users
- * List all users (admin only).
- */
 router.get('/', async (req, res) => {
     try {
-        const result = await db.execute(
-            'SELECT id, username, display_name, email, role, company_name, created_at FROM users ORDER BY created_at ASC'
-        );
-        res.json(result.rows);
+        const users = await User.find({}).sort({ createdAt: 1 }).select('-password_hash');
+        
+        // If it's an API request, return JSON
+        if (req.originalUrl.startsWith('/api')) {
+            return res.json(users);
+        }
+
+        // Render page
+        res.render('users', {
+            title: 'User Management',
+            activePage: 'users',
+            user: req.user,
+            users
+        });
     } catch (err) {
         console.error('List users error:', err);
-        res.status(500).json({ error: 'Failed to fetch users' });
+        if (req.originalUrl.startsWith('/api')) {
+            res.status(500).json({ error: 'Failed to fetch users' });
+        } else {
+            res.status(500).render('error', { message: 'Failed to fetch users' });
+        }
     }
 });
 
-/**
- * POST /api/users
- * Create a new user (admin only).
- * Body: { username, displayName, email, password, role }
- */
 router.post('/', async (req, res) => {
     try {
         const { username, displayName, email, password, role } = req.body;
@@ -40,93 +47,66 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Role must be "admin" or "user"' });
         }
 
-        const hash = bcrypt.hashSync(password, 10);
-        const result = await db.execute({
-            sql: 'INSERT INTO users (username, display_name, email, password_hash, role, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-            args: [username, displayName, email || null, hash, role || 'user', req.user.id]
-        });
-
-        const userRes = await db.execute({
-            sql: 'SELECT id, username, display_name, email, role, created_at FROM users WHERE id = ?',
-            args: [result.lastInsertRowid.toString()]
-        });
-
-        res.status(201).json(userRes.rows[0]);
-    } catch (err) {
-        if (err.message && err.message.includes('UNIQUE constraint failed')) {
+        const existing = await User.findOne({ username });
+        if (existing) {
             return res.status(409).json({ error: 'Username already exists' });
         }
+
+        const hash = bcrypt.hashSync(password, 10);
+        
+        const newUser = await User.create({
+            username,
+            display_name: displayName,
+            email: email || null,
+            password_hash: hash,
+            role: role || 'user',
+            created_by: req.user._id,
+            bill_columns: req.user.bill_columns, // inherit from admin
+            recipient_fields: req.user.recipient_fields,
+            footer_fields: req.user.footer_fields,
+            default_cgst: req.user.default_cgst,
+            default_sgst: req.user.default_sgst
+        });
+
+        res.status(201).json({ id: newUser._id, message: 'User created' });
+    } catch (err) {
         console.error('Create user error:', err);
         res.status(500).json({ error: 'Failed to create user' });
     }
 });
 
-/**
- * PATCH /api/users/:id
- * Update a user (admin only).
- * Body: { displayName?, email?, role?, password? }
- */
 router.patch('/:id', async (req, res) => {
     try {
-        const userRes = await db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [req.params.id] });
-        if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ error: 'User not found' });
 
         const { displayName, email, role, password } = req.body;
 
-        const queries = [];
-        if (displayName) {
-            queries.push({ sql: 'UPDATE users SET display_name = ? WHERE id = ?', args: [displayName, req.params.id] });
-        }
-        if (email !== undefined) {
-            queries.push({ sql: 'UPDATE users SET email = ? WHERE id = ?', args: [email || null, req.params.id] });
-        }
-        if (role && ['admin', 'user'].includes(role)) {
-            queries.push({ sql: 'UPDATE users SET role = ? WHERE id = ?', args: [role, req.params.id] });
-        }
-        if (password) {
-            const hash = bcrypt.hashSync(password, 10);
-            queries.push({ sql: 'UPDATE users SET password_hash = ? WHERE id = ?', args: [hash, req.params.id] });
-        }
+        if (displayName) user.display_name = displayName;
+        if (email !== undefined) user.email = email || null;
+        if (role && ['admin', 'user'].includes(role)) user.role = role;
+        if (password) user.password_hash = bcrypt.hashSync(password, 10);
 
-        if (queries.length > 0) {
-            await db.batch(queries);
-        }
-
-        const updatedRes = await db.execute({
-            sql: 'SELECT id, username, display_name, email, role, created_at FROM users WHERE id = ?',
-            args: [req.params.id]
-        });
-
-        res.json(updatedRes.rows[0]);
+        await user.save();
+        res.json({ id: user._id, message: 'User updated' });
     } catch (err) {
         console.error('Update user error:', err);
         res.status(500).json({ error: 'Failed to update user' });
     }
 });
 
-/**
- * DELETE /api/users/:id
- * Delete a user (admin only, cannot delete self).
- */
 router.delete('/:id', async (req, res) => {
     try {
-        if (parseInt(req.params.id) === req.user.id) {
+        if (req.params.id === req.user._id.toString()) {
             return res.status(400).json({ error: 'Cannot delete your own account' });
         }
 
-        const userRes = await db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [req.params.id] });
-        if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ error: 'User not found' });
 
-        // Delete user's data first (cascading)
-        await db.batch([
-            { sql: 'DELETE FROM line_items WHERE bill_id IN (SELECT id FROM bills WHERE user_id = ?)', args: [req.params.id] },
-            { sql: 'DELETE FROM bills WHERE user_id = ?', args: [req.params.id] },
-            { sql: 'DELETE FROM clients WHERE user_id = ?', args: [req.params.id] },
-            { sql: 'DELETE FROM bill_columns WHERE user_id = ?', args: [req.params.id] },
-            { sql: 'DELETE FROM recipient_fields WHERE user_id = ?', args: [req.params.id] },
-            { sql: 'DELETE FROM footer_fields WHERE user_id = ?', args: [req.params.id] },
-            { sql: 'DELETE FROM users WHERE id = ?', args: [req.params.id] }
-        ]);
+        await Bill.deleteMany({ user_id: user._id });
+        await Client.deleteMany({ user_id: user._id });
+        await User.findByIdAndDelete(user._id);
 
         res.json({ message: 'User deleted successfully' });
     } catch (err) {

@@ -1,0 +1,20 @@
+<%- include('partials/header') %>
+
+<div id="users-container"></div>
+
+<script src="/js/userManagement.js?v=2"></script>
+
+<script>
+    // Set current user for role checking in userManagement.js
+    const userObj = <%- JSON.stringify(user) %>;
+    userObj.id = userObj._id; // Ensure .id exists for frontend comparison
+    window.currentUser = userObj;
+
+    // Initialize the users view when the page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        const container = document.getElementById('users-container');
+        window.renderUserManagement(container);
+    });
+</script>
+
+<%- include('partials/footer') %>

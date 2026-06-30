@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db/connection');
+const Bill = require('../models/Bill');
+const Client = require('../models/Client');
+const User = require('../models/User');
 
-/**
- * Convert number to words (Indian English).
- */
 function numberToWords(num) {
     if (num === 0) return 'Zero Rupees Only';
     const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
@@ -22,21 +21,22 @@ function numberToWords(num) {
     const rupees = Math.floor(num);
     const paise = Math.round((num - rupees) * 100);
     let result = '';
+    let rem = rupees;
 
-    if (rupees >= 10000000) {
-        result += convertChunk(Math.floor(rupees / 10000000)) + ' Crore ';
-        num = rupees % 10000000;
-    } else { num = rupees; }
-    if (num >= 100000) {
-        result += convertChunk(Math.floor(num / 100000)) + ' Lakh ';
-        num = num % 100000;
+    if (rem >= 10000000) {
+        result += convertChunk(Math.floor(rem / 10000000)) + ' Crore ';
+        rem = rem % 10000000;
     }
-    if (num >= 1000) {
-        result += convertChunk(Math.floor(num / 1000)) + ' Thousand ';
-        num = num % 1000;
+    if (rem >= 100000) {
+        result += convertChunk(Math.floor(rem / 100000)) + ' Lakh ';
+        rem = rem % 100000;
     }
-    if (num > 0) {
-        result += convertChunk(num);
+    if (rem >= 1000) {
+        result += convertChunk(Math.floor(rem / 1000)) + ' Thousand ';
+        rem = rem % 1000;
+    }
+    if (rem > 0) {
+        result += convertChunk(rem);
     }
 
     result = result.trim() + ' Rupees';
@@ -48,132 +48,170 @@ function numberToWords(num) {
 }
 
 /**
- * Generate serial number for a user's bills.
+ * Generate the next sequential serial number for a user's bills.
  */
 async function generateSerialNumber(userId) {
-    const res = await db.execute({
-        sql: 'SELECT serial_number FROM bills WHERE user_id = ? ORDER BY id DESC LIMIT 1',
-        args: [userId]
-    });
-
+    const lastBill = await Bill.findOne({ user_id: userId }).sort({ _id: -1 });
     let seq = 1;
-    if (res.rows.length > 0) {
-        const n = parseInt(res.rows[0].serial_number, 10);
+    if (lastBill) {
+        const n = parseInt(lastBill.serial_number, 10);
         if (!isNaN(n)) seq = n + 1;
     }
     return String(seq).padStart(3, '0');
 }
 
 /**
- * GET /api/bills
- * List bills. Admin sees all; users see their own.
+ * Helper: extract a display-friendly client name from recipient_data.
+ */
+function parseClientName(client) {
+    if (!client || !client.recipient_data) return 'Unknown';
+    const rd = client.recipient_data;
+    return rd['Name'] || rd['Company Name'] || Object.values(rd)[0] || 'Unknown';
+}
+
+// ---------------------------------------------------------------------------
+// PAGE ROUTES (render EJS)
+// ---------------------------------------------------------------------------
+
+/**
+ * GET /bills
+ * List all bills. Admin sees all; users see own.
  */
 router.get('/', async (req, res) => {
     try {
-        const { search } = req.query;
         const isAdmin = req.user.role === 'admin';
-        let sql = `
-            SELECT b.*, c.recipient_data
-            FROM bills b
-            JOIN clients c ON b.client_id = c.id
-            WHERE 1=1
-        `;
-        const params = [];
+        const filter = isAdmin ? {} : { user_id: req.user._id };
 
-        if (!isAdmin) {
-            sql += ' AND b.user_id = ?';
-            params.push(req.user.id);
-        }
+        const bills = await Bill.find(filter)
+            .sort({ createdAt: -1 })
+            .populate('client_id');
 
-        if (search) {
-            sql += ' AND c.recipient_data LIKE ?';
-            params.push(`%${search}%`);
-        }
-
-        sql += ' ORDER BY b.created_at DESC';
-
-        const result = await db.execute({ sql, args: params });
-        // Parse recipient_data for display
-        const parsed = result.rows.map(b => {
-            let rd = {};
-            try { rd = JSON.parse(b.recipient_data); } catch {}
-            const clientName = rd['Name'] || rd['Company Name'] || Object.values(rd)[0] || 'Unknown';
-            return { ...b, client_name: clientName };
+        const parsed = bills.map(b => {
+            const bill = b.toObject();
+            bill.client_name = parseClientName(bill.client_id);
+            return bill;
         });
-        res.json(parsed);
+
+        res.render('bills/index', {
+            title: 'Bills',
+            activePage: 'bills',
+            user: req.user,
+            bills: parsed
+        });
     } catch (err) {
         console.error('List bills error:', err);
-        res.status(500).json({ error: 'Failed to fetch bills' });
+        res.status(500).render('error', { message: 'Failed to fetch bills' });
     }
 });
 
 /**
- * GET /api/bills/:id
- * Get a single bill with line items and user profile for rendering.
+ * GET /bills/new
+ * Render the bill creation form.
+ */
+router.get('/new', async (req, res) => {
+    try {
+        const clients = await Client.find({ user_id: req.user._id }).sort({ createdAt: -1 });
+
+        res.render('bills/form', {
+            title: 'New Bill',
+            activePage: 'new-bill',
+            user: req.user,
+            bill: null,
+            profile: req.user,
+            clients
+        });
+    } catch (err) {
+        console.error('New bill form error:', err);
+        res.status(500).render('error', { message: 'Failed to load bill form' });
+    }
+});
+
+/**
+ * GET /bills/:id
+ * View a single bill. Renders the bill view page.
  */
 router.get('/:id', async (req, res) => {
     try {
         const isAdmin = req.user.role === 'admin';
-        const sql = `SELECT b.*, c.recipient_data FROM bills b JOIN clients c ON b.client_id = c.id WHERE b.id = ?${isAdmin ? '' : ' AND b.user_id = ?'}`;
-        const params = isAdmin ? [req.params.id] : [req.params.id, req.user.id];
+        const filter = { _id: req.params.id };
+        if (!isAdmin) {
+            filter.user_id = req.user._id;
+        }
 
-        const billRes = await db.execute({ sql, args: params });
-        const bill = billRes.rows[0];
-        if (!bill) return res.status(404).json({ error: 'Bill not found' });
+        const bill = await Bill.findOne(filter).populate('client_id');
+        if (!bill) {
+            return res.status(404).render('error', { message: 'Bill not found' });
+        }
 
-        const [itemsRes, ownerRes, colsRes] = await Promise.all([
-            db.execute({ sql: 'SELECT * FROM line_items WHERE bill_id = ? ORDER BY sl_no ASC', args: [req.params.id] }),
-            db.execute({
-                sql: `
-                    SELECT bill_title, company_name, company_subtitle, company_address, company_phones,
-                           company_gstin, company_pan, company_wef, bank_details, default_cgst, default_sgst
-                    FROM users WHERE id = ?
-                `,
-                args: [bill.user_id]
-            }),
-            db.execute({ sql: 'SELECT * FROM bill_columns WHERE user_id = ? ORDER BY col_order ASC', args: [bill.user_id] })
-        ]);
+        // Get the owner user for company profile / bill columns
+        const owner = await User.findById(bill.user_id);
 
-        const owner = ownerRes.rows[0];
-
-        let bankDetails = [];
-        try { bankDetails = JSON.parse(owner.bank_details || '[]'); } catch {}
-
-        let recipientData = {};
-        try { recipientData = JSON.parse(bill.recipient_data); } catch {}
-
-        let footerData = {};
-        try { footerData = JSON.parse(bill.footer_data || '{}'); } catch {}
-
-        const parsedItems = itemsRes.rows.map(li => {
-            let cv = {};
-            try { cv = JSON.parse(li.col_values); } catch {}
-            return { ...li, col_values: cv };
-        });
-
-        res.json({
-            ...bill,
-            recipient_data: recipientData,
-            footer_data: footerData,
-            lineItems: parsedItems,
-            owner: { ...owner, bank_details: bankDetails },
-            billColumns: colsRes.rows
+        res.render('bills/view', {
+            title: 'Bill',
+            activePage: 'bills',
+            user: req.user,
+            bill: bill.toObject(),
+            owner,
+            billColumns: owner ? owner.bill_columns : []
         });
     } catch (err) {
         console.error('Get bill error:', err);
-        res.status(500).json({ error: 'Failed to fetch bill' });
+        res.status(500).render('error', { message: 'Failed to fetch bill' });
     }
 });
 
 /**
- * POST /api/bills
+ * GET /bills/:id/edit
+ * Render the bill edit form with existing data.
+ */
+router.get('/:id/edit', async (req, res) => {
+    try {
+        const isAdmin = req.user.role === 'admin';
+        const filter = { _id: req.params.id };
+        if (!isAdmin) {
+            filter.user_id = req.user._id;
+        }
+
+        const bill = await Bill.findOne(filter).populate('client_id');
+        if (!bill) {
+            return res.status(404).render('error', { message: 'Bill not found' });
+        }
+
+        const owner = await User.findById(bill.user_id);
+        const clients = await Client.find({ user_id: bill.user_id }).sort({ createdAt: -1 });
+
+        res.render('bills/form', {
+            title: 'Edit Bill',
+            activePage: 'bills',
+            user: req.user,
+            bill: bill.toObject(),
+            profile: owner,
+            clients
+        });
+    } catch (err) {
+        console.error('Edit bill form error:', err);
+        res.status(500).render('error', { message: 'Failed to load bill form' });
+    }
+});
+
+// ---------------------------------------------------------------------------
+// API ROUTES (return JSON for AJAX)
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /bills
  * Create a new bill.
+ * Body: { client_id?, recipientData?, serial_number?, bill_date, lineItems,
+ *         cgstRate, sgstRate, otherCharges, footerData, notes }
  */
 router.post('/', async (req, res) => {
     try {
-        const { recipientData, billDate, cgstRate, sgstRate, otherCharges, footerData, notes, lineItems } = req.body;
+        const {
+            client_id, recipientData, billDate, cgstRate, sgstRate,
+            otherCharges, footerData, notes, lineItems
+        } = req.body;
 
-        if (!recipientData || !Object.values(recipientData).some(v => v)) {
+        if (!client_id && (!recipientData || !Object.values(recipientData).some(v => v))) {
             return res.status(400).json({ error: 'Recipient details are required' });
         }
         if (!lineItems || lineItems.length === 0) {
@@ -183,79 +221,75 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Bill date is required' });
         }
 
-        const userId = req.user.id;
-        let billId;
+        const userId = req.user._id;
 
-        const tx = await db.transaction('write');
-        try {
-            // 1. Find or create client
-            const recipientStr = JSON.stringify(recipientData);
-            let clientRes = await tx.execute({
-                sql: 'SELECT * FROM clients WHERE user_id = ? AND recipient_data = ?',
-                args: [userId, recipientStr]
+        // 1. Resolve or create client
+        let resolvedClientId = client_id;
+        if (!resolvedClientId && recipientData) {
+            // Look for an existing client with the same recipient_data
+            let existingClient = await Client.findOne({
+                user_id: userId,
+                recipient_data: recipientData
             });
 
-            let client = clientRes.rows[0];
-            if (!client) {
-                const insClient = await tx.execute({
-                    sql: 'INSERT INTO clients (user_id, recipient_data) VALUES (?, ?)',
-                    args: [userId, recipientStr]
-                });
-                const newClientRes = await tx.execute({ sql: 'SELECT * FROM clients WHERE id = ?', args: [insClient.lastInsertRowid.toString()] });
-                client = newClientRes.rows[0];
-            }
-
-            // 2. Calculate totals
-            let subtotal = 0;
-            const processedItems = lineItems.map((item, i) => {
-                const amount = parseInt(item.amount) || 0;
-                subtotal += amount;
-                return { sl_no: i + 1, col_values: JSON.stringify(item.colValues || {}), rate: parseInt(item.rate) || 0, amount };
-            });
-
-            const cRate = parseFloat(cgstRate) || 0;
-            const sRate = parseFloat(sgstRate) || 0;
-            const cgstAmount = Math.round(subtotal * cRate / 100);
-            const sgstAmount = Math.round(subtotal * sRate / 100);
-            const other = parseInt(otherCharges) || 0;
-            const beforeRound = subtotal + cgstAmount + sgstAmount + other;
-            const rounded = Math.round(beforeRound / 100) * 100;
-            const roundOff = rounded - beforeRound;
-            const grandTotal = rounded;
-
-            const amountInWords = numberToWords(grandTotal / 100);
-
-            // 3. Insert bill
-            const serialNumber = await generateSerialNumber(userId);
-            const footerStr = JSON.stringify(footerData || {});
-
-            const billResult = await tx.execute({
-                sql: `
-                    INSERT INTO bills (serial_number, client_id, user_id, bill_date,
-                        subtotal, cgst_rate, sgst_rate, cgst_amount, sgst_amount,
-                        other_charges, round_off, grand_total, amount_in_words, footer_data, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `,
-                args: [serialNumber, client.id, userId, billDate, subtotal, cRate, sRate, cgstAmount, sgstAmount, other, roundOff, grandTotal, amountInWords, footerStr, notes || null]
-            });
-
-            billId = billResult.lastInsertRowid.toString();
-
-            // 4. Insert line items
-            for (const item of processedItems) {
-                await tx.execute({
-                    sql: 'INSERT INTO line_items (bill_id, sl_no, col_values, rate, amount) VALUES (?, ?, ?, ?, ?)',
-                    args: [billId, item.sl_no, item.col_values, item.rate, item.amount]
+            if (!existingClient) {
+                existingClient = await Client.create({
+                    user_id: userId,
+                    recipient_data: recipientData
                 });
             }
-
-            await tx.commit();
-        } catch (e) {
-            await tx.rollback();
-            throw e;
+            resolvedClientId = existingClient._id;
         }
 
-        res.status(201).json({ id: billId, message: 'Bill created' });
+        // 2. Calculate totals (all monetary values in paise)
+        let subtotal = 0;
+        const processedItems = lineItems.map((item, i) => {
+            const amount = parseInt(item.amount) || 0;
+            subtotal += amount;
+            return {
+                sl_no: i + 1,
+                col_values: item.colValues || {},
+                rate: parseInt(item.rate) || 0,
+                amount
+            };
+        });
+
+        const cRate = parseFloat(cgstRate) || 0;
+        const sRate = parseFloat(sgstRate) || 0;
+        const cgstAmount = Math.round(subtotal * cRate / 100);
+        const sgstAmount = Math.round(subtotal * sRate / 100);
+        const other = parseInt(otherCharges) || 0;
+        const beforeRound = subtotal + cgstAmount + sgstAmount + other;
+        const rounded = Math.round(beforeRound / 100) * 100;
+        const roundOff = rounded - beforeRound;
+        const grandTotal = rounded;
+
+        const amountInWords = numberToWords(grandTotal / 100);
+
+        // 3. Generate serial number
+        const serialNumber = await generateSerialNumber(userId);
+
+        // 4. Create bill document
+        const bill = await Bill.create({
+            serial_number: serialNumber,
+            client_id: resolvedClientId,
+            user_id: userId,
+            bill_date: billDate,
+            subtotal,
+            cgst_rate: cRate,
+            sgst_rate: sRate,
+            cgst_amount: cgstAmount,
+            sgst_amount: sgstAmount,
+            other_charges: other,
+            round_off: roundOff,
+            grand_total: grandTotal,
+            amount_in_words: amountInWords,
+            footer_data: footerData || {},
+            notes: notes || null,
+            lineItems: processedItems
+        });
+
+        res.status(201).json({ id: bill._id, message: 'Bill created' });
     } catch (err) {
         console.error('Create bill error:', err);
         res.status(500).json({ error: 'Failed to create bill' });
@@ -263,90 +297,92 @@ router.post('/', async (req, res) => {
 });
 
 /**
- * PUT /api/bills/:id
+ * PUT /bills/:id
  * Update an existing bill.
  */
 router.put('/:id', async (req, res) => {
     try {
         const isAdmin = req.user.role === 'admin';
-        const checkRes = await db.execute({
-            sql: isAdmin ? 'SELECT * FROM bills WHERE id = ?' : 'SELECT * FROM bills WHERE id = ? AND user_id = ?',
-            args: isAdmin ? [req.params.id] : [req.params.id, req.user.id]
-        });
+        const filter = { _id: req.params.id };
+        if (!isAdmin) {
+            filter.user_id = req.user._id;
+        }
 
-        const billCheck = checkRes.rows[0];
-        if (!billCheck) return res.status(404).json({ error: 'Bill not found' });
+        const bill = await Bill.findOne(filter);
+        if (!bill) {
+            return res.status(404).json({ error: 'Bill not found' });
+        }
 
-        const { recipientData, billDate, cgstRate, sgstRate, otherCharges, footerData, notes, lineItems } = req.body;
+        const {
+            recipientData, billDate, cgstRate, sgstRate,
+            otherCharges, footerData, notes, lineItems
+        } = req.body;
 
         if (!lineItems || lineItems.length === 0) {
             return res.status(400).json({ error: 'At least one line item is required' });
         }
 
-        const tx = await db.transaction('write');
-        try {
-            const userId = billCheck.user_id;
-            const recipientStr = JSON.stringify(recipientData);
-            let clientRes = await tx.execute({
-                sql: 'SELECT * FROM clients WHERE user_id = ? AND recipient_data = ?',
-                args: [userId, recipientStr]
+        const userId = bill.user_id;
+
+        // Resolve client
+        let resolvedClientId = bill.client_id;
+        if (recipientData) {
+            let existingClient = await Client.findOne({
+                user_id: userId,
+                recipient_data: recipientData
             });
-
-            let client = clientRes.rows[0];
-            if (!client) {
-                const insClient = await tx.execute({
-                    sql: 'INSERT INTO clients (user_id, recipient_data) VALUES (?, ?)',
-                    args: [userId, recipientStr]
-                });
-                const newClientRes = await tx.execute({ sql: 'SELECT * FROM clients WHERE id = ?', args: [insClient.lastInsertRowid.toString()] });
-                client = newClientRes.rows[0];
-            }
-
-            let subtotal = 0;
-            const processedItems = lineItems.map((item, i) => {
-                const amount = parseInt(item.amount) || 0;
-                subtotal += amount;
-                return { sl_no: i + 1, col_values: JSON.stringify(item.colValues || {}), rate: parseInt(item.rate) || 0, amount };
-            });
-
-            const cRate = parseFloat(cgstRate) || 0;
-            const sRate = parseFloat(sgstRate) || 0;
-            const cgstAmount = Math.round(subtotal * cRate / 100);
-            const sgstAmount = Math.round(subtotal * sRate / 100);
-            const other = parseInt(otherCharges) || 0;
-            const beforeRound = subtotal + cgstAmount + sgstAmount + other;
-            const rounded = Math.round(beforeRound / 100) * 100;
-            const roundOff = rounded - beforeRound;
-            const grandTotal = rounded;
-            const amountInWords = numberToWords(grandTotal / 100);
-            const footerStr = JSON.stringify(footerData || {});
-
-            await tx.execute({
-                sql: `
-                    UPDATE bills SET client_id = ?, bill_date = ?,
-                        subtotal = ?, cgst_rate = ?, sgst_rate = ?, cgst_amount = ?, sgst_amount = ?,
-                        other_charges = ?, round_off = ?, grand_total = ?, amount_in_words = ?,
-                        footer_data = ?, notes = ?
-                    WHERE id = ?
-                `,
-                args: [client.id, billDate || billCheck.bill_date, subtotal, cRate, sRate, cgstAmount, sgstAmount, other, roundOff, grandTotal, amountInWords, footerStr, notes || null, req.params.id]
-            });
-
-            await tx.execute({ sql: 'DELETE FROM line_items WHERE bill_id = ?', args: [req.params.id] });
-            for (const item of processedItems) {
-                await tx.execute({
-                    sql: 'INSERT INTO line_items (bill_id, sl_no, col_values, rate, amount) VALUES (?, ?, ?, ?, ?)',
-                    args: [req.params.id, item.sl_no, item.col_values, item.rate, item.amount]
+            if (!existingClient) {
+                existingClient = await Client.create({
+                    user_id: userId,
+                    recipient_data: recipientData
                 });
             }
-
-            await tx.commit();
-        } catch (e) {
-            await tx.rollback();
-            throw e;
+            resolvedClientId = existingClient._id;
         }
 
-        res.json({ id: parseInt(req.params.id), message: 'Bill updated' });
+        // Calculate totals
+        let subtotal = 0;
+        const processedItems = lineItems.map((item, i) => {
+            const amount = parseInt(item.amount) || 0;
+            subtotal += amount;
+            return {
+                sl_no: i + 1,
+                col_values: item.colValues || {},
+                rate: parseInt(item.rate) || 0,
+                amount
+            };
+        });
+
+        const cRate = parseFloat(cgstRate) || 0;
+        const sRate = parseFloat(sgstRate) || 0;
+        const cgstAmount = Math.round(subtotal * cRate / 100);
+        const sgstAmount = Math.round(subtotal * sRate / 100);
+        const other = parseInt(otherCharges) || 0;
+        const beforeRound = subtotal + cgstAmount + sgstAmount + other;
+        const rounded = Math.round(beforeRound / 100) * 100;
+        const roundOff = rounded - beforeRound;
+        const grandTotal = rounded;
+        const amountInWords = numberToWords(grandTotal / 100);
+
+        // Update bill
+        bill.client_id = resolvedClientId;
+        bill.bill_date = billDate || bill.bill_date;
+        bill.subtotal = subtotal;
+        bill.cgst_rate = cRate;
+        bill.sgst_rate = sRate;
+        bill.cgst_amount = cgstAmount;
+        bill.sgst_amount = sgstAmount;
+        bill.other_charges = other;
+        bill.round_off = roundOff;
+        bill.grand_total = grandTotal;
+        bill.amount_in_words = amountInWords;
+        bill.footer_data = footerData || {};
+        bill.notes = notes || null;
+        bill.lineItems = processedItems;
+
+        await bill.save();
+
+        res.json({ id: bill._id, message: 'Bill updated' });
     } catch (err) {
         console.error('Update bill error:', err);
         res.status(500).json({ error: 'Failed to update bill' });
@@ -354,24 +390,33 @@ router.put('/:id', async (req, res) => {
 });
 
 /**
- * DELETE /api/bills/:id
- * Delete a bill and its line items.
+ * DELETE /bills/:id
+ * Delete a bill. Admin can delete any; users can delete only their own.
+ * Also cleans up orphaned clients (clients with no remaining bills).
  */
 router.delete('/:id', async (req, res) => {
     try {
         const isAdmin = req.user.role === 'admin';
-        const checkRes = await db.execute({
-            sql: isAdmin ? 'SELECT * FROM bills WHERE id = ?' : 'SELECT * FROM bills WHERE id = ? AND user_id = ?',
-            args: isAdmin ? [req.params.id] : [req.params.id, req.user.id]
-        });
+        const filter = { _id: req.params.id };
+        if (!isAdmin) {
+            filter.user_id = req.user._id;
+        }
 
-        const bill = checkRes.rows[0];
-        if (!bill) return res.status(404).json({ error: 'Bill not found' });
+        const bill = await Bill.findOne(filter);
+        if (!bill) {
+            return res.status(404).json({ error: 'Bill not found' });
+        }
 
-        await db.batch([
-            { sql: 'DELETE FROM line_items WHERE bill_id = ?', args: [req.params.id] },
-            { sql: 'DELETE FROM bills WHERE id = ?', args: [req.params.id] }
-        ]);
+        const clientId = bill.client_id;
+        await Bill.findByIdAndDelete(bill._id);
+
+        // Clean up orphaned client if no other bills reference it
+        if (clientId) {
+            const remaining = await Bill.countDocuments({ client_id: clientId });
+            if (remaining === 0) {
+                await Client.findByIdAndDelete(clientId);
+            }
+        }
 
         res.json({ message: 'Bill deleted' });
     } catch (err) {

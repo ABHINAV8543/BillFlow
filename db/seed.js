@@ -1,161 +1,154 @@
-/**
- * Seed script v3 — Custom bill templates, company profiles.
- * Run with: npm run seed
- */
 const path = require('path');
-const fs = require('fs');
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 
-// Delete existing databases to start fresh (only if local file)
-const dbPath = process.env.DB_PATH || './db/billing.db';
-if (!dbPath.startsWith('libsql://') && !dbPath.startsWith('https://')) {
-    const localPath = path.resolve(__dirname, '..', dbPath);
-    if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
-    // Remove WAL/SHM files too
-    [localPath + '-wal', localPath + '-shm'].forEach(f => { try { fs.unlinkSync(f); } catch {} });
-}
-
-const db = require('./connection');
 const bcrypt = require('bcryptjs');
+const { connectDB, mongoose } = require('./connection');
+const User = require('../models/User');
+const Client = require('../models/Client');
+const Bill = require('../models/Bill');
 
 async function seed() {
     try {
-        console.log('Running schema...');
-        const schemaPath = path.join(__dirname, 'schema.sql');
-        const schema = fs.readFileSync(schemaPath, 'utf-8');
-        await db.executeMultiple(schema);
+        await connectDB();
 
-        console.log('Seeding data...');
+        console.log('Dropping existing collections...');
+        const collections = ['users', 'clients', 'bills'];
+        for (const name of collections) {
+            try {
+                await mongoose.connection.db.dropCollection(name);
+                console.log(`   Dropped: ${name}`);
+            } catch (err) {
+            
+                if (err.codeName !== 'NamespaceNotFound') {
+                    console.warn(`   Warning dropping ${name}:`, err.message);
+                }
+            }
+        }
+
+        console.log('\nSeeding data...');
         const adminHash = bcrypt.hashSync('admin123', 10);
         const userHash = bcrypt.hashSync('user123', 10);
 
-        // ========== USERS ==========
-        const insertUserSql = `
-            INSERT INTO users (username, display_name, email, password_hash, role,
-                bill_title, company_name, company_subtitle, company_address, company_phones,
-                company_gstin, company_pan, company_wef, bank_details,
-                default_cgst, default_sgst, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-
-        const resAdmin = await db.execute({
-            sql: insertUserSql,
-            args: [
-                'admin', 'Alka Enterprises', 'admin@alkaenterprises.com', adminHash, 'admin',
-                'TAX INVOICE', 'ALKA ENTERPRISES', 'TEA MERCHANT AND COMMISSION AGENT',
-                'SHAHPANJA, SHAHGANJ, JAUNPUR - 223101', '9838266150, 9918156168',
-                '09AJZPG6215D1Z0', 'AJZPG6215D', '01-07-2017',
-                JSON.stringify([
-                    { bank: 'PUNJAB NATIONAL BANK', branch: 'SHAHGANJ', account: '4504008700001124', ifsc: 'PUNB0450400' },
-                    { bank: 'UNION BANK OF INDIA', branch: 'SHAHGANJ MAIN', account: '347101010011090', ifsc: 'UBIN0534714' }
-                ]),
-                2.5, 2.5, null
-            ]
+        const adminUser = await User.create({
+            username: 'admin',
+            display_name: 'Alka Enterprises',
+            email: 'admin@alkaenterprises.com',
+            password_hash: adminHash,
+            role: 'admin',
+            bill_title: 'TAX INVOICE',
+            company_name: 'ALKA ENTERPRISES',
+            company_subtitle: 'TEA MERCHANT AND COMMISSION AGENT',
+            company_address: 'SHAHPANJA, SHAHGANJ, JAUNPUR - 223101',
+            company_phones: '9838266150, 9918156168',
+            company_gstin: '09AJZPG6215D1Z0',
+            company_pan: 'AJZPG6215D',
+            company_wef: '01-07-2017',
+            bank_details: [
+                { bank: 'PUNJAB NATIONAL BANK', branch: 'SHAHGANJ', account: '4504008700001124', ifsc: 'PUNB0450400' },
+                { bank: 'UNION BANK OF INDIA', branch: 'SHAHGANJ MAIN', account: '347101010011090', ifsc: 'UBIN0534714' }
+            ],
+            default_cgst: 2.5,
+            default_sgst: 2.5,
+            bill_columns: [
+                { col_name: 'Particulars', col_type: 'text', col_order: 1, is_rate: false, is_qty: false, is_amount: false },
+                { col_name: 'Bags', col_type: 'number', col_order: 2, is_rate: false, is_qty: false, is_amount: false },
+                { col_name: 'Kgs.', col_type: 'number', col_order: 3, is_rate: false, is_qty: false, is_amount: false },
+                { col_name: 'Total Quantity', col_type: 'number', col_order: 4, is_rate: false, is_qty: true, is_amount: false },
+                { col_name: 'Rate', col_type: 'number', col_order: 5, is_rate: true, is_qty: false, is_amount: false },
+                { col_name: 'Amount', col_type: 'number', col_order: 6, is_rate: false, is_qty: false, is_amount: true }
+            ],
+            recipient_fields: [
+                { field_name: 'Name', field_order: 1 },
+                { field_name: 'Address', field_order: 2 },
+                { field_name: 'GSTIN/UIN', field_order: 3 },
+                { field_name: 'HSN/ACS', field_order: 4 }
+            ],
+            footer_fields: [
+                { field_name: 'E-Way Bill No.', field_order: 1 },
+                { field_name: 'Transporter', field_order: 2 },
+                { field_name: 'Vehicle No.', field_order: 3 }
+            ],
+            created_by: null
         });
-        const adminId = resAdmin.lastInsertRowid.toString();
+        const adminId = adminUser._id;
 
-        const resUser = await db.execute({
-            sql: insertUserSql,
-            args: [
-                'user1', 'Rahul Sharma', 'rahul@techsolutions.in', userHash, 'user',
-                'INVOICE', 'TECH SOLUTIONS PVT. LTD.', 'SOFTWARE DEVELOPMENT & CONSULTING',
-                '302, Cyber Tower, Hitech City, Hyderabad - 500081', '+91-40-2354-8900',
-                '36AABCT1234D1ZE', 'AABCT1234D', '01-04-2020',
-                JSON.stringify([
-                    { bank: 'HDFC BANK', branch: 'HITECH CITY', account: '50100123456789', ifsc: 'HDFC0001234' }
-                ]),
-                9, 9, adminId
-            ]
+        const user1 = await User.create({
+            username: 'user1',
+            display_name: 'Rahul Sharma',
+            email: 'rahul@techsolutions.in',
+            password_hash: userHash,
+            role: 'user',
+            bill_title: 'INVOICE',
+            company_name: 'TECH SOLUTIONS PVT. LTD.',
+            company_subtitle: 'SOFTWARE DEVELOPMENT & CONSULTING',
+            company_address: '302, Cyber Tower, Hitech City, Hyderabad - 500081',
+            company_phones: '+91-40-2354-8900',
+            company_gstin: '36AABCT1234D1ZE',
+            company_pan: 'AABCT1234D',
+            company_wef: '01-04-2020',
+            bank_details: [
+                { bank: 'HDFC BANK', branch: 'HITECH CITY', account: '50100123456789', ifsc: 'HDFC0001234' }
+            ],
+            default_cgst: 9,
+            default_sgst: 9,
+            bill_columns: [
+                { col_name: 'Description', col_type: 'text', col_order: 1, is_rate: false, is_qty: false, is_amount: false },
+                { col_name: 'Hours', col_type: 'number', col_order: 2, is_rate: false, is_qty: true, is_amount: false },
+                { col_name: 'Rate', col_type: 'number', col_order: 3, is_rate: true, is_qty: false, is_amount: false },
+                { col_name: 'Amount', col_type: 'number', col_order: 4, is_rate: false, is_qty: false, is_amount: true }
+            ],
+            recipient_fields: [
+                { field_name: 'Company Name', field_order: 1 },
+                { field_name: 'Contact Person', field_order: 2 },
+                { field_name: 'Address', field_order: 3 },
+                { field_name: 'GSTIN', field_order: 4 },
+                { field_name: 'Email', field_order: 5 }
+            ],
+            footer_fields: [
+                { field_name: 'PO Number', field_order: 1 },
+                { field_name: 'Project Code', field_order: 2 }
+            ],
+            created_by: adminId
         });
-        const userId = resUser.lastInsertRowid.toString();
+        const userId = user1._id;
 
-        console.log(`✅ Users created:`);
-        console.log(`   → admin / admin123 (ALKA ENTERPRISES — tea merchant)`);
-        console.log(`   → user1 / user123 (TECH SOLUTIONS PVT. LTD. — IT services)`);
+        console.log('✅ Users created:');
+        console.log('   → admin / admin123 (ALKA ENTERPRISES — tea merchant)');
+        console.log('   → user1 / user123 (TECH SOLUTIONS PVT. LTD. — IT services)');
 
-        // ========== BILL COLUMNS ==========
-        const insertColSql = 'INSERT INTO bill_columns (user_id, col_name, col_type, col_order, is_rate, is_qty, is_amount) VALUES (?, ?, ?, ?, ?, ?, ?)';
+        const client1 = await Client.create({
+            user_id: adminId,
+            recipient_data: {
+                'Name': 'Ravi Tea Traders',
+                'Address': 'Sultanpur Road, Jaunpur - 222001',
+                'GSTIN/UIN': '09BBBRT1234A1ZK',
+                'HSN/ACS': '0 902'
+            }
+        });
 
-        await db.batch([
-            { sql: insertColSql, args: [adminId, 'Particulars', 'text', 1, 0, 0, 0] },
-            { sql: insertColSql, args: [adminId, 'Bags', 'number', 2, 0, 0, 0] },
-            { sql: insertColSql, args: [adminId, 'Kgs.', 'number', 3, 0, 0, 0] },
-            { sql: insertColSql, args: [adminId, 'Total Quantity', 'number', 4, 0, 1, 0] },
-            { sql: insertColSql, args: [adminId, 'Rate', 'number', 5, 1, 0, 0] },
-            { sql: insertColSql, args: [adminId, 'Amount', 'number', 6, 0, 0, 1] },
+        const client2 = await Client.create({
+            user_id: adminId,
+            recipient_data: {
+                'Name': 'Sharma & Sons Tea House',
+                'Address': 'Civil Lines, Varanasi - 221001',
+                'GSTIN/UIN': '09AABSS5678B1ZP',
+                'HSN/ACS': '0 902'
+            }
+        });
 
-            { sql: insertColSql, args: [userId, 'Description', 'text', 1, 0, 0, 0] },
-            { sql: insertColSql, args: [userId, 'Hours', 'number', 2, 0, 1, 0] },
-            { sql: insertColSql, args: [userId, 'Rate', 'number', 3, 1, 0, 0] },
-            { sql: insertColSql, args: [userId, 'Amount', 'number', 4, 0, 0, 1] }
-        ]);
+        const client3 = await Client.create({
+            user_id: userId,
+            recipient_data: {
+                'Company Name': 'Infosys Ltd',
+                'Contact Person': 'Rajesh Kumar',
+                'Address': 'Electronics City, Bengaluru - 560100',
+                'GSTIN': '29AABCI1234F1ZN',
+                'Email': 'rajesh@infosys.com'
+            }
+        });
 
-        // ========== RECIPIENT FIELDS ==========
-        const insertRecipientSql = 'INSERT INTO recipient_fields (user_id, field_name, field_order) VALUES (?, ?, ?)';
-        await db.batch([
-            { sql: insertRecipientSql, args: [adminId, 'Name', 1] },
-            { sql: insertRecipientSql, args: [adminId, 'Address', 2] },
-            { sql: insertRecipientSql, args: [adminId, 'GSTIN/UIN', 3] },
-            { sql: insertRecipientSql, args: [adminId, 'HSN/ACS', 4] },
+        console.log('✅ Clients created: 3');
 
-            { sql: insertRecipientSql, args: [userId, 'Company Name', 1] },
-            { sql: insertRecipientSql, args: [userId, 'Contact Person', 2] },
-            { sql: insertRecipientSql, args: [userId, 'Address', 3] },
-            { sql: insertRecipientSql, args: [userId, 'GSTIN', 4] },
-            { sql: insertRecipientSql, args: [userId, 'Email', 5] }
-        ]);
-
-        // ========== FOOTER FIELDS ==========
-        const insertFooterSql = 'INSERT INTO footer_fields (user_id, field_name, field_order) VALUES (?, ?, ?)';
-        await db.batch([
-            { sql: insertFooterSql, args: [adminId, 'E-Way Bill No.', 1] },
-            { sql: insertFooterSql, args: [adminId, 'Transporter', 2] },
-            { sql: insertFooterSql, args: [adminId, 'Vehicle No.', 3] },
-
-            { sql: insertFooterSql, args: [userId, 'PO Number', 1] },
-            { sql: insertFooterSql, args: [userId, 'Project Code', 2] }
-        ]);
-
-        // ========== SAMPLE CLIENTS ==========
-        const insertClientSql = 'INSERT INTO clients (user_id, recipient_data) VALUES (?, ?)';
-        const c1 = await db.execute({ sql: insertClientSql, args: [adminId, JSON.stringify({
-            'Name': 'Ravi Tea Traders',
-            'Address': 'Sultanpur Road, Jaunpur - 222001',
-            'GSTIN/UIN': '09BBBRT1234A1ZK',
-            'HSN/ACS': '0 902'
-        })]});
-        const adminClient1 = c1.lastInsertRowid.toString();
-
-        const c2 = await db.execute({ sql: insertClientSql, args: [adminId, JSON.stringify({
-            'Name': 'Sharma & Sons Tea House',
-            'Address': 'Civil Lines, Varanasi - 221001',
-            'GSTIN/UIN': '09AABSS5678B1ZP',
-            'HSN/ACS': '0 902'
-        })]});
-        const adminClient2 = c2.lastInsertRowid.toString();
-
-        const c3 = await db.execute({ sql: insertClientSql, args: [userId, JSON.stringify({
-            'Company Name': 'Infosys Ltd',
-            'Contact Person': 'Rajesh Kumar',
-            'Address': 'Electronics City, Bengaluru - 560100',
-            'GSTIN': '29AABCI1234F1ZN',
-            'Email': 'rajesh@infosys.com'
-        })]});
-        const userClient1 = c3.lastInsertRowid.toString();
-
-        // ========== SAMPLE BILLS ==========
-        const insertBillSql = `
-            INSERT INTO bills (serial_number, client_id, user_id, bill_date,
-                subtotal, cgst_rate, sgst_rate, cgst_amount, sgst_amount,
-                other_charges, round_off, grand_total, amount_in_words, footer_data, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-        const insertLineItemSql = `
-            INSERT INTO line_items (bill_id, sl_no, col_values, rate, amount)
-            VALUES (?, ?, ?, ?, ?)
-        `;
-
-        // Bill 1
         const sub1 = 5000000;
         const cgst1 = Math.round(sub1 * 2.5 / 100);
         const sgst1 = Math.round(sub1 * 2.5 / 100);
@@ -163,18 +156,36 @@ async function seed() {
         const rounded1 = Math.round(beforeRound1 / 100) * 100;
         const roundOff1 = rounded1 - beforeRound1;
 
-        const b1 = await db.execute({ sql: insertBillSql, args: [
-            '001', adminClient1, adminId, '2026-06-01',
-            sub1, 2.5, 2.5, cgst1, sgst1, 0, roundOff1, rounded1,
-            'Fifty Two Thousand Five Hundred Rupees Only',
-            JSON.stringify({ 'E-Way Bill No.': 'EWB-2026-001234', 'Transporter': 'Sharma Transport', 'Vehicle No.': 'UP 65 AB 1234' }),
-            null
-        ]});
-        const bill1 = b1.lastInsertRowid.toString();
+        await Bill.create({
+            serial_number: '001',
+            client_id: client1._id,
+            user_id: adminId,
+            bill_date: '2026-06-01',
+            subtotal: sub1,
+            cgst_rate: 2.5,
+            sgst_rate: 2.5,
+            cgst_amount: cgst1,
+            sgst_amount: sgst1,
+            other_charges: 0,
+            round_off: roundOff1,
+            grand_total: rounded1,
+            amount_in_words: 'Fifty Two Thousand Five Hundred Rupees Only',
+            footer_data: {
+                'E-Way Bill No.': 'EWB-2026-001234',
+                'Transporter': 'Sharma Transport',
+                'Vehicle No.': 'UP 65 AB 1234'
+            },
+            notes: null,
+            lineItems: [
+                {
+                    sl_no: 1,
+                    col_values: { 'Particulars': 'Assam CTC Tea', 'Bags': 10, 'Kgs.': 250, 'Total Quantity': 250 },
+                    rate: 20000,
+                    amount: 5000000
+                }
+            ]
+        });
 
-        await db.execute({ sql: insertLineItemSql, args: [bill1, 1, JSON.stringify({ 'Particulars': 'Assam CTC Tea', 'Bags': 10, 'Kgs.': 250, 'Total Quantity': 250 }), 20000, 5000000] });
-
-        // Bill 2
         const sub2 = 3200000;
         const cgst2 = Math.round(sub2 * 2.5 / 100);
         const sgst2 = Math.round(sub2 * 2.5 / 100);
@@ -182,21 +193,42 @@ async function seed() {
         const rounded2 = Math.round(beforeRound2 / 100) * 100;
         const roundOff2 = rounded2 - beforeRound2;
 
-        const b2 = await db.execute({ sql: insertBillSql, args: [
-            '002', adminClient2, adminId, '2026-06-05',
-            sub2, 2.5, 2.5, cgst2, sgst2, 0, roundOff2, rounded2,
-            'Thirty Three Thousand Six Hundred Rupees Only',
-            JSON.stringify({ 'E-Way Bill No.': '', 'Transporter': '', 'Vehicle No.': '' }),
-            null
-        ]});
-        const bill2 = b2.lastInsertRowid.toString();
+        await Bill.create({
+            serial_number: '002',
+            client_id: client2._id,
+            user_id: adminId,
+            bill_date: '2026-06-05',
+            subtotal: sub2,
+            cgst_rate: 2.5,
+            sgst_rate: 2.5,
+            cgst_amount: cgst2,
+            sgst_amount: sgst2,
+            other_charges: 0,
+            round_off: roundOff2,
+            grand_total: rounded2,
+            amount_in_words: 'Thirty Three Thousand Six Hundred Rupees Only',
+            footer_data: {
+                'E-Way Bill No.': '',
+                'Transporter': '',
+                'Vehicle No.': ''
+            },
+            notes: null,
+            lineItems: [
+                {
+                    sl_no: 1,
+                    col_values: { 'Particulars': 'Darjeeling Green Tea', 'Bags': 5, 'Kgs.': 125, 'Total Quantity': 125 },
+                    rate: 16000,
+                    amount: 2000000
+                },
+                {
+                    sl_no: 2,
+                    col_values: { 'Particulars': 'Masala Chai Blend', 'Bags': 4, 'Kgs.': 80, 'Total Quantity': 80 },
+                    rate: 15000,
+                    amount: 1200000
+                }
+            ]
+        });
 
-        await db.batch([
-            { sql: insertLineItemSql, args: [bill2, 1, JSON.stringify({ 'Particulars': 'Darjeeling Green Tea', 'Bags': 5, 'Kgs.': 125, 'Total Quantity': 125 }), 16000, 2000000] },
-            { sql: insertLineItemSql, args: [bill2, 2, JSON.stringify({ 'Particulars': 'Masala Chai Blend', 'Bags': 4, 'Kgs.': 80, 'Total Quantity': 80 }), 15000, 1200000] }
-        ]);
-
-        // Bill 3
         const sub3 = 12000000;
         const cgst3 = Math.round(sub3 * 9 / 100);
         const sgst3 = Math.round(sub3 * 9 / 100);
@@ -204,26 +236,52 @@ async function seed() {
         const rounded3 = Math.round(beforeRound3 / 100) * 100;
         const roundOff3 = rounded3 - beforeRound3;
 
-        const b3 = await db.execute({ sql: insertBillSql, args: [
-            '001', userClient1, userId, '2026-06-03',
-            sub3, 9, 9, cgst3, sgst3, 0, roundOff3, rounded3,
-            'One Lakh Forty One Thousand Six Hundred Rupees Only',
-            JSON.stringify({ 'PO Number': 'PO-INF-2026-0456', 'Project Code': 'PROJ-HYD-001' }),
-            null
-        ]});
-        const bill3 = b3.lastInsertRowid.toString();
+        await Bill.create({
+            serial_number: '001',
+            client_id: client3._id,
+            user_id: userId,
+            bill_date: '2026-06-03',
+            subtotal: sub3,
+            cgst_rate: 9,
+            sgst_rate: 9,
+            cgst_amount: cgst3,
+            sgst_amount: sgst3,
+            other_charges: 0,
+            round_off: roundOff3,
+            grand_total: rounded3,
+            amount_in_words: 'One Lakh Forty One Thousand Six Hundred Rupees Only',
+            footer_data: {
+                'PO Number': 'PO-INF-2026-0456',
+                'Project Code': 'PROJ-HYD-001'
+            },
+            notes: null,
+            lineItems: [
+                {
+                    sl_no: 1,
+                    col_values: { 'Description': 'Backend API Development', 'Hours': 80 },
+                    rate: 100000,
+                    amount: 8000000
+                },
+                {
+                    sl_no: 2,
+                    col_values: { 'Description': 'Frontend UI Implementation', 'Hours': 40 },
+                    rate: 100000,
+                    amount: 4000000
+                }
+            ]
+        });
 
-        await db.batch([
-            { sql: insertLineItemSql, args: [bill3, 1, JSON.stringify({ 'Description': 'Backend API Development', 'Hours': 80 }), 100000, 8000000] },
-            { sql: insertLineItemSql, args: [bill3, 2, JSON.stringify({ 'Description': 'Frontend UI Implementation', 'Hours': 40 }), 100000, 4000000] }
-        ]);
+        console.log('✅ Bills created: 3');
 
-        console.log(`\n✅ Sample data seeded:`);
-        console.log(`   → Admin: 2 clients, 2 bills (tea merchant columns)`);
-        console.log(`   → User1: 1 client, 1 bill (IT services columns)`);
-        console.log(`   → Custom bill columns, recipient fields, footer fields per user`);
+        console.log('\n✅ Sample data seeded:');
+        console.log('   → Admin: 2 clients, 2 bills (tea merchant columns)');
+        console.log('   → User1: 1 client, 1 bill (IT services columns)');
+        console.log('   → Custom bill columns, recipient fields, footer fields per user');
+
+        process.exit(0);
     } catch (err) {
-        console.error('Seed Error:', err);
+        console.error('❌ Seed Error:', err);
+        process.exit(1);
     }
 }
 

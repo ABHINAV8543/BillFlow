@@ -1,0 +1,25 @@
+<%- include('../partials/header') %>
+
+<div id="bill-form-container"></div>
+
+<!-- Inject variables for billForm.js -->
+<script>
+    window.userProfile = <%- JSON.stringify(profile) %>;
+    <% if (bill) { %>
+        const editId = '<%= bill._id %>';
+    <% } else { %>
+        const editId = null;
+    <% } %>
+</script>
+
+<script src="/js/billForm.js?v=2"></script>
+
+<script>
+    // Initialize the form when the page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        const container = document.getElementById('bill-form-container');
+        window.renderBillForm(container, editId);
+    });
+</script>
+
+<%- include('../partials/footer') %>

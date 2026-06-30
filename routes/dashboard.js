@@ -1,68 +1,52 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db/connection');
+const Bill = require('../models/Bill');
+const Client = require('../models/Client');
 
-/**
- * GET /api/dashboard/metrics
- * Revenue-only metrics. Admin sees global; users see their own.
- */
-router.get('/metrics', async (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const isAdmin = req.user.role === 'admin';
-        const filter = isAdmin ? '' : 'WHERE user_id = ?';
-        const params = isAdmin ? [] : [req.user.id];
-        const clientFilter = isAdmin ? '' : 'WHERE user_id = ?';
+        const filter = isAdmin ? {} : { user_id: req.user._id };
 
-        const [revRes, billsRes, clientsRes, recentRes] = await Promise.all([
-            db.execute({
-                sql: `SELECT COALESCE(SUM(grand_total), 0) AS total FROM bills ${filter}`,
-                args: params
-            }),
-            db.execute({
-                sql: `SELECT COUNT(*) AS count FROM bills ${filter}`,
-                args: params
-            }),
-            db.execute({
-                sql: `SELECT COUNT(*) AS count FROM clients ${clientFilter}`,
-                args: params
-            }),
-            db.execute({
-                sql: `
-                    SELECT b.id, b.serial_number, b.bill_date, b.grand_total, c.recipient_data
-                    FROM bills b
-                    JOIN clients c ON b.client_id = c.id
-                    ${isAdmin ? '' : 'WHERE b.user_id = ?'}
-                    ORDER BY b.created_at DESC
-                    LIMIT 5
-                `,
-                args: params
-            })
+        // Run all queries in parallel
+        const [revenueResult, totalBills, totalClients, recentBills] = await Promise.all([
+            Bill.aggregate([
+                { $match: filter },
+                { $group: { _id: null, total: { $sum: '$grand_total' } } }
+            ]),
+            Bill.countDocuments(filter),
+            Client.countDocuments(isAdmin ? {} : { user_id: req.user._id }),
+            Bill.find(filter)
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .populate('client_id')
         ]);
 
-        const totalRevenue = revRes.rows[0].total;
-        const totalBills = billsRes.rows[0].count;
-        const totalClients = clientsRes.rows[0].count;
-        const recentBills = recentRes.rows;
+        const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
 
-        // Parse client names
-        const parsedBills = recentBills.map(b => {
-            let rd = {};
-            try { rd = JSON.parse(b.recipient_data); } catch {}
-            return {
-                ...b,
-                client_name: rd['Name'] || rd['Company Name'] || Object.values(rd)[0] || 'Unknown'
-            };
+        // Parse client_name from populated client_id.recipient_data
+        const parsedRecentBills = recentBills.map(b => {
+            const bill = b.toObject();
+            let clientName = 'Unknown';
+            if (bill.client_id && bill.client_id.recipient_data) {
+                const rd = bill.client_id.recipient_data;
+                clientName = rd['Name'] || rd['Company Name'] || Object.values(rd)[0] || 'Unknown';
+            }
+            return { ...bill, client_name: clientName };
         });
 
-        res.json({
+        res.render('dashboard', {
+            title: 'Dashboard',
+            activePage: 'dashboard',
+            user: req.user,
             totalRevenue,
             totalBills,
             totalClients,
-            recentBills: parsedBills
+            recentBills: parsedRecentBills
         });
     } catch (err) {
-        console.error('Dashboard metrics error:', err);
-        res.status(500).json({ error: 'Failed to fetch dashboard metrics' });
+        console.error('Dashboard error:', err);
+        res.status(500).render('error', { message: 'Failed to load dashboard' });
     }
 });
 

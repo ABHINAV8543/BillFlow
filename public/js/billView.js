@@ -3,11 +3,26 @@
  * Uses a SINGLE unified column list to build header, data rows, and total row
  * so column alignment is guaranteed.
  */
-window.renderBillView = async function (container, id) {
+window.renderBillView = async function (container, idOrData) {
+    function formatCurrency(paise) { 
+        return '₹' + (paise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); 
+    }
+    function formatDate(iso) { 
+        if (!iso) return '—'; 
+        const d = new Date(iso + 'T00:00:00'); 
+        return d.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }); 
+    }
+
     try {
-        const res = await fetch(`/api/bills/${id}`);
-        if (!res.ok) throw new Error('Bill not found');
-        const bill = await res.json();
+        let bill;
+        if (typeof idOrData === 'object') {
+            bill = idOrData; // preloaded data
+        } else {
+            const res = await fetch(`/api/bills/${idOrData}`);
+            if (!res.ok) throw new Error('Bill not found');
+            bill = await res.json();
+        }
+        
         const o = bill.owner; // company profile
         const cols = bill.billColumns || [];
         const rd = bill.recipient_data || {};
@@ -93,7 +108,7 @@ window.renderBillView = async function (container, id) {
             <div class="invoice-actions">
                 <button class="btn btn-secondary" onclick="history.back()">← Back</button>
                 <button class="btn btn-primary" onclick="window.print()">🖨 Print</button>
-                <button class="btn btn-secondary" onclick="navigateTo('#/edit-bill/${id}')">✏ Edit</button>
+                <button class="btn btn-secondary" onclick="window.location.href='/bills/${bill._id || bill.id}/edit'">✏ Edit</button>
                 <button class="btn btn-danger" id="delete-bill-btn">🗑 Delete</button>
             </div>
             <div class="bill-page">
@@ -174,16 +189,15 @@ window.renderBillView = async function (container, id) {
 
         // Delete handler
         document.getElementById('delete-bill-btn').addEventListener('click', async () => {
-            if (!confirm('Are you sure you want to delete this bill? This cannot be undone.')) return;
-            try {
-                const r = await fetch(`/api/bills/${id}`, { method: 'DELETE' });
-                if (!r.ok) { const d = await r.json(); throw new Error(d.error); }
-                showToast('Bill deleted.');
-                navigateTo('#/bills');
-            } catch (err) { showToast(err.message, 'error'); }
+            if (confirm('Are you sure you want to delete this bill?')) {
+                fetch(`/api/bills/${bill._id || bill.id}`, { method: 'DELETE' })
+                    .then(r => r.json())
+                    .then(() => window.location.href = '/bills')
+                    .catch(err => alert('Failed to delete bill'));
+            }
         });
     } catch (err) {
         console.error(err);
-        container.innerHTML = '<div class="empty-state"><p>Bill not found.</p><a href="#/bills" class="btn btn-secondary" style="margin-top:16px">← Back to Bills</a></div>';
+        container.innerHTML = `<div class="empty-state"><p>${err.message}</p><a href="/bills" class="btn btn-secondary" style="margin-top:16px">&larr; Back to Bills</a></div>`;
     }
 };

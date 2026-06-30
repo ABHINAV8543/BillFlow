@@ -65,7 +65,7 @@ window.renderUserManagement = async function (container) {
         } else {
             modalTitle.textContent = 'Edit User';
             modalSubmit.textContent = 'Save Changes';
-            editIdField.value = user.id;
+            editIdField.value = user._id || user.id;
             usernameField.value = user.username;
             usernameField.disabled = true;
             document.getElementById('user-display-name').value = user.display_name;
@@ -107,8 +107,8 @@ window.renderUserManagement = async function (container) {
                 <td><span class="badge ${u.role === 'admin' ? 'paid' : 'unpaid'}">${u.role}</span></td>
                 <td>
                     <div style="display:flex; gap:8px;">
-                        <button class="btn btn-secondary btn-sm" onclick="editUser(${u.id})">Edit</button>
-                        ${u.id !== window.currentUser.id ? `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${u.username}')">Delete</button>` : ''}
+                        <button class="btn btn-secondary btn-sm" onclick="editUser('${u._id || u.id}')">Edit</button>
+                        ${(u._id || u.id) !== window.currentUser.id ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${u._id || u.id}', '${u.username}')">Delete</button>` : ''}
                     </div>
                 </td>
             </tr>
@@ -118,7 +118,7 @@ window.renderUserManagement = async function (container) {
     window.editUser = async function (id) {
         const res = await fetch('/api/users');
         const users = await res.json();
-        const user = users.find(u => u.id === id);
+        const user = users.find(u => (u._id || u.id).toString() === id.toString());
         if (user) openModal('edit', user);
     };
 

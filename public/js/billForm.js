@@ -15,7 +15,7 @@ window.renderBillForm = async function (container, editId) {
     }
 
     if (!profile.billColumns || profile.billColumns.length === 0) {
-        container.innerHTML = '<div class="empty-state"><p>No bill columns configured. <a href="#/profile" style="color:var(--accent);font-weight:600;">Set up your bill template →</a></p></div>';
+        container.innerHTML = '<div class="empty-state"><p>No bill columns configured. <a href="/profile" style="color:var(--accent);font-weight:600;">Set up your bill template →</a></p></div>';
         return;
     }
 
@@ -27,7 +27,7 @@ window.renderBillForm = async function (container, editId) {
             if (!r.ok) throw new Error('Bill not found');
             existingBill = await r.json();
         } catch (err) {
-            container.innerHTML = '<div class="empty-state"><p>Bill not found for editing.</p><a href="#/bills" class="btn btn-secondary" style="margin-top:16px">← Back to Bills</a></div>';
+            container.innerHTML = '<div class="empty-state"><p>Bill not found for editing.</p><a href="/bills" class="btn btn-secondary" style="margin-top:16px">← Back to Bills</a></div>';
             return;
         }
     }
@@ -135,7 +135,7 @@ window.renderBillForm = async function (container, editId) {
                 </div>
 
                 <div style="display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;">
-                    ${isEdit ? '<a href="#/bills" class="btn btn-secondary">Cancel</a>' : '<button type="reset" class="btn btn-secondary">Reset</button>'}
+                    ${isEdit ? '<a href="/bills" class="btn btn-secondary">Cancel</a>' : '<button type="reset" class="btn btn-secondary">Reset</button>'}
                     <button type="submit" class="btn btn-primary" id="submit-bill-btn">${submitLabel}</button>
                 </div>
             </form>
