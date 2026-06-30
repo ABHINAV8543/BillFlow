@@ -61,11 +61,11 @@ router.post('/', async (req, res) => {
             password_hash: hash,
             role: role || 'user',
             created_by: req.user._id,
-            bill_columns: req.user.bill_columns, // inherit from admin
-            recipient_fields: req.user.recipient_fields,
-            footer_fields: req.user.footer_fields,
-            default_cgst: req.user.default_cgst,
-            default_sgst: req.user.default_sgst
+            bill_columns: [],
+            recipient_fields: [],
+            footer_fields: [],
+            default_cgst: 0,
+            default_sgst: 0
         });
 
         res.status(201).json({ id: newUser._id, message: 'User created' });
