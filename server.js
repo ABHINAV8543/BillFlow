@@ -20,14 +20,28 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Session with MongoDB store
+const sessionStore = process.env.MONGODB_URI 
+    ? MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        collectionName: 'sessions'
+    }) 
+    : undefined;
+
+if (sessionStore) {
+    sessionStore.on('error', function(error) {
+        console.error('❌ MongoStore Session Error:', error);
+    });
+}
+
+if (!process.env.MONGODB_URI) {
+    console.error('CRITICAL: MONGODB_URI environment variable is not set. Falling back to MemoryStore.');
+}
+
 app.use(session({
     secret: process.env.SESSION_SECRET || 'billflow-secret-key-change-in-production',
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({
-        mongoUrl: process.env.MONGODB_URI,
-        collectionName: 'sessions'
-    }),
+    store: sessionStore,
     cookie: {
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
         httpOnly: true,
