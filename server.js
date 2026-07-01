@@ -7,8 +7,8 @@ const MongoStore = require('connect-mongo').default;
 const { connectDB } = require('./db/connection');
 const { requireAuth, requireAdmin } = require('./middleware/auth');
 
-import { inject } from "@vercel/analytics"
-inject()
+const { inject } = require('@vercel/analytics');
+inject();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
