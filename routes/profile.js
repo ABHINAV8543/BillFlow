@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const catchAsync = require('../utils/catchAsync');
+const AppError = require('../utils/AppError');
 
-router.get('/', async (req, res) => {
-    try {
+router.get('/', catchAsync(async (req, res, next) => {
         const fullUser = await User.findById(req.user._id);
         if (!fullUser) {
             return res.status(404).render('error', { message: 'User not found' });
@@ -18,19 +19,14 @@ router.get('/', async (req, res) => {
             user: req.user,
             profile: fullUser
         });
-    } catch (err) {
-        console.error('Get profile error:', err);
-        res.status(500).render('error', { message: 'Failed to load profile' });
-    }
-});
+}));
 
 /**
  * PATCH /profile
  * Update company detail fields on the user document.
  * Returns JSON (consumed by AJAX).
  */
-router.patch('/', async (req, res) => {
-    try {
+router.patch('/', catchAsync(async (req, res, next) => {
         const body = req.body;
         const updates = {};
 
@@ -59,11 +55,7 @@ router.patch('/', async (req, res) => {
 
         await User.findByIdAndUpdate(req.user._id, { $set: updates });
         res.json({ message: 'Profile updated' });
-    } catch (err) {
-        console.error('Update profile error:', err);
-        res.status(500).json({ error: 'Failed to update profile' });
-    }
-});
+}));
 
 /**
  * PUT /profile/columns
@@ -71,12 +63,11 @@ router.patch('/', async (req, res) => {
  * Body: { columns: [{ col_name, col_type, col_order, is_rate, is_qty, is_amount }] }
  * Returns JSON with updated columns.
  */
-router.put('/columns', async (req, res) => {
-    try {
-        const { columns } = req.body;
-        if (!columns || !Array.isArray(columns)) {
-            return res.status(400).json({ error: 'columns array required' });
-        }
+router.put('/columns', catchAsync(async (req, res, next) => {
+    const { columns } = req.body;
+    if (!columns || !Array.isArray(columns)) {
+        return next(new AppError('columns array required', 400));
+    }
 
         const processed = columns.map((col, i) => ({
             col_name: col.col_name,
@@ -92,11 +83,7 @@ router.put('/columns', async (req, res) => {
         await user.save();
 
         res.json(user.bill_columns);
-    } catch (err) {
-        console.error('Update columns error:', err);
-        res.status(500).json({ error: 'Failed to update columns' });
-    }
-});
+}));
 
 /**
  * PUT /profile/recipient-fields
@@ -104,12 +91,11 @@ router.put('/columns', async (req, res) => {
  * Body: { fields: [{ field_name, field_order }] }
  * Returns JSON with updated fields.
  */
-router.put('/recipient-fields', async (req, res) => {
-    try {
-        const { fields } = req.body;
-        if (!fields || !Array.isArray(fields)) {
-            return res.status(400).json({ error: 'fields array required' });
-        }
+router.put('/recipient-fields', catchAsync(async (req, res, next) => {
+    const { fields } = req.body;
+    if (!fields || !Array.isArray(fields)) {
+        return next(new AppError('fields array required', 400));
+    }
 
         const processed = fields.map((f, i) => ({
             field_name: f.field_name,
@@ -121,11 +107,7 @@ router.put('/recipient-fields', async (req, res) => {
         await user.save();
 
         res.json(user.recipient_fields);
-    } catch (err) {
-        console.error('Update recipient fields error:', err);
-        res.status(500).json({ error: 'Failed to update recipient fields' });
-    }
-});
+}));
 
 /**
  * PUT /profile/footer-fields
@@ -133,12 +115,11 @@ router.put('/recipient-fields', async (req, res) => {
  * Body: { fields: [{ field_name, field_order }] }
  * Returns JSON with updated fields.
  */
-router.put('/footer-fields', async (req, res) => {
-    try {
-        const { fields } = req.body;
-        if (!fields || !Array.isArray(fields)) {
-            return res.status(400).json({ error: 'fields array required' });
-        }
+router.put('/footer-fields', catchAsync(async (req, res, next) => {
+    const { fields } = req.body;
+    if (!fields || !Array.isArray(fields)) {
+        return next(new AppError('fields array required', 400));
+    }
 
         const processed = fields.map((f, i) => ({
             field_name: f.field_name,
@@ -150,10 +131,6 @@ router.put('/footer-fields', async (req, res) => {
         await user.save();
 
         res.json(user.footer_fields);
-    } catch (err) {
-        console.error('Update footer fields error:', err);
-        res.status(500).json({ error: 'Failed to update footer fields' });
-    }
-});
+}));
 
 module.exports = router;

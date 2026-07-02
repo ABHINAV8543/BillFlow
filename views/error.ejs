@@ -1,0 +1,25 @@
+<%- include('partials/header') %>
+
+<div style="display: flex; align-items: center; justify-content: center; min-height: 80vh;">
+    <div class="error-container" style="text-align: center; background: rgba(23, 19, 26, 0.95); backdrop-filter: blur(20px); border-radius: 12px; padding: 60px 40px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.08); max-width: 500px; width: 100%;">
+        
+        <h1 style="font-size: 6rem; font-weight: 800; margin: 0; background: linear-gradient(135deg, #ff75a0, #ff9cb7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1;">
+            <%= statusCode %>
+        </h1>
+        
+        <h2 style="font-size: 1.5rem; margin-top: 16px; margin-bottom: 24px; color: #fff;">
+            Uh oh! Something went wrong.
+        </h2>
+        
+        <p style="color: #a09da6; margin-bottom: 32px; font-size: 1.1rem; line-height: 1.6;">
+            <%= message %>
+        </p>
+        
+        <a href="/dashboard" class="btn btn-primary" style="display: inline-block; padding: 12px 32px; font-weight: 600;">
+            Return to Dashboard
+        </a>
+        
+    </div>
+</div>
+
+<%- include('partials/footer') %>

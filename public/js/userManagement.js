@@ -126,7 +126,7 @@ window.renderUserManagement = async function (container) {
         if (!confirm(`Delete user "${username}"? All their data will be deleted.`)) return;
         try {
             const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
-            if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+            if (!res.ok) { const d = await res.json(); throw new Error(d.message || d.error || 'Something went wrong'); }
             showToast(`User "${username}" deleted.`);
             loadUsers();
         } catch (err) { showToast(err.message, 'error'); }
@@ -150,7 +150,7 @@ window.renderUserManagement = async function (container) {
             const url = isEdit ? `/api/users/${editId}` : '/api/users';
             const method = isEdit ? 'PATCH' : 'POST';
             const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-            if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+            if (!res.ok) { const d = await res.json(); throw new Error(d.message || d.error || 'Something went wrong'); }
             showToast(isEdit ? 'User updated.' : 'User created.');
             closeModal();
             loadUsers();

@@ -5,13 +5,14 @@ const User = require('../models/User');
 const Bill = require('../models/Bill');
 const Client = require('../models/Client');
 const { requireAdmin } = require('../middleware/auth');
+const catchAsync = require('../utils/catchAsync');
+const AppError = require('../utils/AppError');
 
 // All routes in this file require admin
 router.use(requireAdmin);
 
-router.get('/', async (req, res) => {
-    try {
-        const users = await User.find({}).sort({ createdAt: 1 }).select('-password_hash');
+router.get('/', catchAsync(async (req, res, next) => {
+    const users = await User.find({}).sort({ createdAt: 1 }).select('-password_hash');
         
         // If it's an API request, return JSON
         if (req.originalUrl.startsWith('/api')) {
@@ -25,32 +26,23 @@ router.get('/', async (req, res) => {
             user: req.user,
             users
         });
-    } catch (err) {
-        console.error('List users error:', err);
-        if (req.originalUrl.startsWith('/api')) {
-            res.status(500).json({ error: 'Failed to fetch users' });
-        } else {
-            res.status(500).render('error', { message: 'Failed to fetch users' });
-        }
+}));
+
+router.post('/', catchAsync(async (req, res, next) => {
+    const { username, displayName, email, password, role } = req.body;
+
+    if (!username || !password || !displayName) {
+        return next(new AppError('Username, display name, and password are required', 400));
     }
-});
 
-router.post('/', async (req, res) => {
-    try {
-        const { username, displayName, email, password, role } = req.body;
+    if (role && !['admin', 'user'].includes(role)) {
+        return next(new AppError('Role must be "admin" or "user"', 400));
+    }
 
-        if (!username || !password || !displayName) {
-            return res.status(400).json({ error: 'Username, display name, and password are required' });
-        }
-
-        if (role && !['admin', 'user'].includes(role)) {
-            return res.status(400).json({ error: 'Role must be "admin" or "user"' });
-        }
-
-        const existing = await User.findOne({ username });
-        if (existing) {
-            return res.status(409).json({ error: 'Username already exists' });
-        }
+    const existing = await User.findOne({ username });
+    if (existing) {
+        return next(new AppError('Username already exists', 409));
+    }
 
         const hash = bcrypt.hashSync(password, 10);
         
@@ -68,17 +60,12 @@ router.post('/', async (req, res) => {
             default_sgst: 0
         });
 
-        res.status(201).json({ id: newUser._id, message: 'User created' });
-    } catch (err) {
-        console.error('Create user error:', err);
-        res.status(500).json({ error: 'Failed to create user' });
-    }
-});
+    res.status(201).json({ id: newUser._id, message: 'User created' });
+}));
 
-router.patch('/:id', async (req, res) => {
-    try {
-        const user = await User.findById(req.params.id);
-        if (!user) return res.status(404).json({ error: 'User not found' });
+router.patch('/:id', catchAsync(async (req, res, next) => {
+    const user = await User.findById(req.params.id);
+    if (!user) return next(new AppError('User not found', 404));
 
         const { displayName, email, role, password } = req.body;
 
@@ -87,32 +74,23 @@ router.patch('/:id', async (req, res) => {
         if (role && ['admin', 'user'].includes(role)) user.role = role;
         if (password) user.password_hash = bcrypt.hashSync(password, 10);
 
-        await user.save();
-        res.json({ id: user._id, message: 'User updated' });
-    } catch (err) {
-        console.error('Update user error:', err);
-        res.status(500).json({ error: 'Failed to update user' });
+    await user.save();
+    res.json({ id: user._id, message: 'User updated' });
+}));
+
+router.delete('/:id', catchAsync(async (req, res, next) => {
+    if (req.params.id === req.user._id.toString()) {
+        return next(new AppError('Cannot delete your own account', 400));
     }
-});
 
-router.delete('/:id', async (req, res) => {
-    try {
-        if (req.params.id === req.user._id.toString()) {
-            return res.status(400).json({ error: 'Cannot delete your own account' });
-        }
-
-        const user = await User.findById(req.params.id);
-        if (!user) return res.status(404).json({ error: 'User not found' });
+    const user = await User.findById(req.params.id);
+    if (!user) return next(new AppError('User not found', 404));
 
         await Bill.deleteMany({ user_id: user._id });
         await Client.deleteMany({ user_id: user._id });
         await User.findByIdAndDelete(user._id);
 
-        res.json({ message: 'User deleted successfully' });
-    } catch (err) {
-        console.error('Delete user error:', err);
-        res.status(500).json({ error: 'Failed to delete user' });
-    }
-});
+    res.json({ message: 'User deleted successfully' });
+}));
 
 module.exports = router;

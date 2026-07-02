@@ -29,7 +29,7 @@ const sessionStore = process.env.MONGODB_URI
 
 if (sessionStore) {
     sessionStore.on('error', function(error) {
-        console.error('❌ MongoStore Session Error:', error);
+        console.error('MongoStore Session Error:', error);
     });
 }
 
@@ -79,10 +79,16 @@ app.use('/api/bills', requireAuth, require('./routes/bills'));
 app.use('/api/profile', requireAuth, require('./routes/profile'));
 app.use('/api/users', requireAuth, requireAdmin, require('./routes/users'));
 
+const AppError = require('./utils/AppError');
+const globalErrorHandler = require('./middleware/errorHandler');
+
 // 404 fallback
-app.use((req, res) => {
-    res.status(404).send('Page not found');
+app.all('*', (req, res, next) => {
+    next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
+
+// Global Error Handler
+app.use(globalErrorHandler);
 
 // Start server
 if (process.env.VERCEL || process.env.NODE_ENV === 'production') {

@@ -316,7 +316,7 @@ window.renderBillForm = async function (container, editId) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
-            if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+            if (!res.ok) { const err = await res.json(); throw new Error(err.message || err.error || 'Something went wrong'); }
             const result = await res.json();
             showToast(isEdit ? 'Bill updated!' : 'Bill generated!');
             window.location.href = '/bills/' + result.id;

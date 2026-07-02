@@ -3,6 +3,8 @@ const router = express.Router();
 const Bill = require('../models/Bill');
 const Client = require('../models/Client');
 const User = require('../models/User');
+const catchAsync = require('../utils/catchAsync');
+const AppError = require('../utils/AppError');
 
 function numberToWords(num) {
     if (num === 0) return 'Zero Rupees Only';
@@ -77,9 +79,8 @@ function parseClientName(client) {
  * GET /bills
  * List all bills. Admin sees all; users see own.
  */
-router.get('/', async (req, res) => {
-    try {
-        const isAdmin = req.user.role === 'admin';
+router.get('/', catchAsync(async (req, res, next) => {
+    const isAdmin = req.user.role === 'admin';
         const filter = isAdmin ? {} : { user_id: req.user._id };
 
         const bills = await Bill.find(filter)
@@ -91,60 +92,46 @@ router.get('/', async (req, res) => {
             bill.client_name = parseClientName(bill.client_id);
             return bill;
         });
-
-        res.render('bills/index', {
-            title: 'Bills',
-            activePage: 'bills',
-            user: req.user,
-            bills: parsed
-        });
-    } catch (err) {
-        console.error('List bills error:', err);
-        res.status(500).render('error', { message: 'Failed to fetch bills' });
-    }
-});
+    res.render('bills/index', {
+        title: 'Bills',
+        activePage: 'bills',
+        user: req.user,
+        bills: parsed
+    });
+}));
 
 /**
  * GET /bills/new
  * Render the bill creation form.
  */
-router.get('/new', async (req, res) => {
-    try {
-        const clients = await Client.find({ user_id: req.user._id }).sort({ createdAt: -1 });
+router.get('/new', catchAsync(async (req, res, next) => {
+    const clients = await Client.find({ user_id: req.user._id }).sort({ createdAt: -1 });
 
-        res.render('bills/form', {
-            title: 'New Bill',
-            activePage: 'new-bill',
-            user: req.user,
-            bill: null,
-            profile: req.user,
-            clients
-        });
-    } catch (err) {
-        console.error('New bill form error:', err);
-        res.status(500).render('error', { message: 'Failed to load bill form' });
-    }
-});
+    res.render('bills/form', {
+        title: 'New Bill',
+        activePage: 'new-bill',
+        user: req.user,
+        bill: null,
+        profile: req.user,
+        clients
+    });
+}));
 
 /**
  * GET /bills/:id
  * View a single bill. Renders the bill view page.
  */
-router.get('/:id', async (req, res) => {
-    try {
-        const isAdmin = req.user.role === 'admin';
+router.get('/:id', catchAsync(async (req, res, next) => {
+    const isAdmin = req.user.role === 'admin';
         const filter = { _id: req.params.id };
         if (!isAdmin) {
             filter.user_id = req.user._id;
         }
 
-        const bill = await Bill.findOne(filter).populate('client_id');
-        if (!bill) {
-            if (req.originalUrl.startsWith('/api')) {
-                return res.status(404).json({ error: 'Bill not found' });
-            }
-            return res.status(404).render('error', { message: 'Bill not found' });
-        }
+    const bill = await Bill.findOne(filter).populate('client_id');
+    if (!bill) {
+        return next(new AppError('Bill not found', 404));
+    }
 
         if (req.originalUrl.startsWith('/api')) {
             return res.json(bill);
@@ -161,18 +148,13 @@ router.get('/:id', async (req, res) => {
             owner,
             billColumns: owner ? owner.bill_columns : []
         });
-    } catch (err) {
-        console.error('Get bill error:', err);
-        res.status(500).render('error', { message: 'Failed to fetch bill' });
-    }
-});
+}));
 
 /**
  * GET /bills/:id/edit
  * Render the bill edit form with existing data.
  */
-router.get('/:id/edit', async (req, res) => {
-    try {
+router.get('/:id/edit', catchAsync(async (req, res, next) => {
         const isAdmin = req.user.role === 'admin';
         const filter = { _id: req.params.id };
         if (!isAdmin) {
@@ -181,7 +163,7 @@ router.get('/:id/edit', async (req, res) => {
 
         const bill = await Bill.findOne(filter).populate('client_id');
         if (!bill) {
-            return res.status(404).render('error', { message: 'Bill not found' });
+            return next(new AppError('Bill not found', 404));
         }
 
         const owner = await User.findById(bill.user_id);
@@ -195,11 +177,7 @@ router.get('/:id/edit', async (req, res) => {
             profile: owner,
             clients
         });
-    } catch (err) {
-        console.error('Edit bill form error:', err);
-        res.status(500).render('error', { message: 'Failed to load bill form' });
-    }
-});
+}));
 
 // ---------------------------------------------------------------------------
 // API ROUTES (return JSON for AJAX)
@@ -211,21 +189,20 @@ router.get('/:id/edit', async (req, res) => {
  * Body: { client_id?, recipientData?, serial_number?, bill_date, lineItems,
  *         cgstRate, sgstRate, otherCharges, footerData, notes }
  */
-router.post('/', async (req, res) => {
-    try {
+router.post('/', catchAsync(async (req, res, next) => {
         const {
             client_id, recipientData, billDate, cgstRate, sgstRate,
             otherCharges, footerData, notes, lineItems
         } = req.body;
 
         if (!client_id && (!recipientData || !Object.values(recipientData).some(v => v))) {
-            return res.status(400).json({ error: 'Recipient details are required' });
+            return next(new AppError('Recipient details are required', 400));
         }
         if (!lineItems || lineItems.length === 0) {
-            return res.status(400).json({ error: 'At least one line item is required' });
+            return next(new AppError('At least one line item is required', 400));
         }
         if (!billDate) {
-            return res.status(400).json({ error: 'Bill date is required' });
+            return next(new AppError('Bill date is required', 400));
         }
 
         const userId = req.user._id;
@@ -297,37 +274,32 @@ router.post('/', async (req, res) => {
         });
 
         res.status(201).json({ id: bill._id, message: 'Bill created' });
-    } catch (err) {
-        console.error('Create bill error:', err);
-        res.status(500).json({ error: 'Failed to create bill' });
-    }
-});
+}));
 
 /**
  * PUT /bills/:id
  * Update an existing bill.
  */
-router.put('/:id', async (req, res) => {
-    try {
+router.put('/:id', catchAsync(async (req, res, next) => {
         const isAdmin = req.user.role === 'admin';
         const filter = { _id: req.params.id };
         if (!isAdmin) {
             filter.user_id = req.user._id;
         }
 
-        const bill = await Bill.findOne(filter);
-        if (!bill) {
-            return res.status(404).json({ error: 'Bill not found' });
-        }
+    const bill = await Bill.findOne(filter);
+    if (!bill) {
+        return next(new AppError('Bill not found', 404));
+    }
 
         const {
             recipientData, billDate, cgstRate, sgstRate,
             otherCharges, footerData, notes, lineItems
         } = req.body;
 
-        if (!lineItems || lineItems.length === 0) {
-            return res.status(400).json({ error: 'At least one line item is required' });
-        }
+    if (!lineItems || lineItems.length === 0) {
+        return next(new AppError('At least one line item is required', 400));
+    }
 
         const userId = bill.user_id;
 
@@ -389,30 +361,25 @@ router.put('/:id', async (req, res) => {
 
         await bill.save();
 
-        res.json({ id: bill._id, message: 'Bill updated' });
-    } catch (err) {
-        console.error('Update bill error:', err);
-        res.status(500).json({ error: 'Failed to update bill' });
-    }
-});
+    res.json({ id: bill._id, message: 'Bill updated' });
+}));
 
 /**
  * DELETE /bills/:id
  * Delete a bill. Admin can delete any; users can delete only their own.
  * Also cleans up orphaned clients (clients with no remaining bills).
  */
-router.delete('/:id', async (req, res) => {
-    try {
+router.delete('/:id', catchAsync(async (req, res, next) => {
         const isAdmin = req.user.role === 'admin';
         const filter = { _id: req.params.id };
         if (!isAdmin) {
             filter.user_id = req.user._id;
         }
 
-        const bill = await Bill.findOne(filter);
-        if (!bill) {
-            return res.status(404).json({ error: 'Bill not found' });
-        }
+    const bill = await Bill.findOne(filter);
+    if (!bill) {
+        return next(new AppError('Bill not found', 404));
+    }
 
         const clientId = bill.client_id;
         await Bill.findByIdAndDelete(bill._id);
@@ -425,11 +392,7 @@ router.delete('/:id', async (req, res) => {
             }
         }
 
-        res.json({ message: 'Bill deleted' });
-    } catch (err) {
-        console.error('Delete bill error:', err);
-        res.status(500).json({ error: 'Failed to delete bill' });
-    }
-});
+    res.json({ message: 'Bill deleted' });
+}));
 
 module.exports = router;
