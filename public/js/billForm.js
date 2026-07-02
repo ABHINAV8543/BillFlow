@@ -36,10 +36,11 @@ window.renderBillForm = async function (container, editId) {
     const columns = profile.bill_columns;
     const recipientFields = profile.recipient_fields || [];
     const footerFields = profile.footer_fields || [];
+    const slCol = columns.find(c => c.col_type === 'sl') || { col_name: 'Sl.' };
+    const amountCol = columns.find(c => c.is_amount) || { col_name: 'Amount' };
     const rateCol = columns.find(c => c.is_rate);
     const qtyCol = columns.find(c => c.is_qty);
-    const amountCol = columns.find(c => c.is_amount);
-    const dataCols = columns.filter(c => !c.is_rate && !c.is_qty && !c.is_amount);
+    const dataCols = columns.filter(c => !c.is_rate && !c.is_qty && !c.is_amount && c.col_type !== 'sl');
 
     const today = new Date().toISOString().slice(0, 10);
     let lineItemCount = 0;
@@ -49,10 +50,11 @@ window.renderBillForm = async function (container, editId) {
     const existingFooter = isEdit ? (existingBill.footer_data || {}) : {};
 
     // Build recipient fields HTML
-    const recipientHTML = recipientFields.map(f => `
+    const recipientHTML = recipientFields.map((f, i) => `
         <div class="form-group">
-            <label class="form-label">${f.field_name}</label>
-            <input class="form-input recipient-field" type="text" data-field="${f.field_name}" placeholder="${f.field_name}" value="${(existingRecipient[f.field_name] || '').replace(/"/g, '&quot;')}">
+            <label class="form-label">${f.field_name}${i === 0 ? ' *' : ''}</label>
+            <input class="form-input recipient-field" type="text" data-field="${f.field_name}" placeholder="${f.field_name}" value="${(existingRecipient[f.field_name] || '').replace(/"/g, '&quot;')}" ${i === 0 ? 'required' : ''}>
+            ${i === 0 ? `<div class="invalid-feedback">${f.field_name} is required.</div>` : ''}
         </div>
     `).join('');
 
@@ -65,11 +67,11 @@ window.renderBillForm = async function (container, editId) {
     `).join('');
 
     // Build table headers for line items
-    const colHeaders = '<th style="width:40px">Sl.</th>' +
+    const colHeaders = `<th style="width:40px">${slCol.col_name}</th>` +
         dataCols.map(c => `<th>${c.col_name}</th>`).join('') +
         (qtyCol ? `<th style="width:100px">${qtyCol.col_name}</th>` : '') +
         (rateCol ? `<th style="width:120px">${rateCol.col_name} (₹)</th>` : '') +
-        (amountCol ? `<th style="width:130px">${amountCol.col_name}</th>` : '') +
+        `<th style="width:130px">${amountCol.col_name} (₹)</th>` +
         '<th style="width:50px"></th>';
 
     const formTitle = isEdit ? `Edit Bill #${existingBill.serial_number}` : 'Create New Bill';
@@ -78,7 +80,7 @@ window.renderBillForm = async function (container, editId) {
     container.innerHTML = `
         <div class="card" style="padding: 32px;">
             <h2 class="section-title" style="margin-bottom: 24px;">${formTitle}</h2>
-            <form id="bill-form" autocomplete="off">
+            <form id="bill-form" autocomplete="off" novalidate>
                 <h3 class="form-section-label">Recipient Details</h3>
                 <div class="form-grid">${recipientHTML}</div>
 
@@ -87,6 +89,7 @@ window.renderBillForm = async function (container, editId) {
                     <div class="form-group">
                         <label class="form-label">Bill Date *</label>
                         <input class="form-input" type="date" id="bill-date" value="${isEdit ? existingBill.bill_date : today}" required>
+                        <div class="invalid-feedback">Bill Date is required.</div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">CGST (%)</label>
@@ -160,21 +163,19 @@ window.renderBillForm = async function (container, editId) {
         dataCols.forEach(c => {
             const inputType = c.col_type === 'number' ? 'number' : 'text';
             const val = prefill ? (prefill.col_values[c.col_name] !== undefined ? prefill.col_values[c.col_name] : '') : '';
-            cells += `<td><input class="form-input" type="${inputType}" data-col="${c.col_name}" ${c.col_type === 'number' ? 'min="0" step="any"' : ''} placeholder="${c.col_name}" value="${String(val).replace(/"/g, '&quot;')}"></td>`;
+            cells += `<td><input class="form-input" type="${inputType}" data-col="${c.col_name}" ${c.col_type === 'number' ? 'min="0" step="any"' : ''} placeholder="${c.col_name}" value="${String(val).replace(/"/g, '&quot;')}" required><div class="invalid-feedback">Required.</div></td>`;
         });
 
         if (qtyCol) {
             const qtyVal = prefill ? (prefill.col_values[qtyCol.col_name] !== undefined ? prefill.col_values[qtyCol.col_name] : '') : '';
-            cells += `<td><input class="form-input qty-input" type="number" min="0" step="any" data-col="${qtyCol.col_name}" placeholder="${qtyCol.col_name}" value="${qtyVal}"></td>`;
+            cells += `<td><input class="form-input qty-input" type="number" min="0" step="any" data-col="${qtyCol.col_name}" placeholder="${qtyCol.col_name}" value="${qtyVal}" required><div class="invalid-feedback">Required.</div></td>`;
         }
         if (rateCol) {
             const rateVal = prefill ? (prefill.rate / 100).toFixed(2) : '';
-            cells += `<td><input class="form-input price-input rate-input" type="number" min="0" step="0.01" data-col="${rateCol.col_name}" placeholder="${rateCol.col_name}" value="${rateVal}"></td>`;
+            cells += `<td><input class="form-input price-input rate-input" type="number" min="0" step="0.01" data-col="${rateCol.col_name}" placeholder="${rateCol.col_name}" value="${rateVal}" required><div class="invalid-feedback">Required.</div></td>`;
         }
-        if (amountCol) {
-            const amtVal = prefill ? fmtINR(prefill.amount / 100) : '₹0.00';
-            cells += `<td><span class="line-item-total amount-display" data-col="${amountCol.col_name}">${amtVal}</span></td>`;
-        }
+        const amtVal = prefill ? fmtINR(prefill.amount / 100) : '₹0.00';
+        cells += `<td><span class="line-item-total amount-display" data-col="Amount">${amtVal}</span></td>`;
         cells += `<td><button type="button" class="btn btn-icon btn-danger remove-item-btn" title="Remove">&times;</button></td>`;
 
         tr.innerHTML = cells;
@@ -257,6 +258,13 @@ window.renderBillForm = async function (container, editId) {
     // Submit
     document.getElementById('bill-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const form = e.target;
+        form.classList.add('was-validated');
+        if (!form.checkValidity()) {
+            e.stopPropagation();
+            return;
+        }
+
         const rows = lineItemsBody.querySelectorAll('tr');
         if (rows.length === 0) { showToast('Add at least one line item.', 'error'); return; }
 

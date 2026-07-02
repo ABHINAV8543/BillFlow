@@ -61,6 +61,7 @@ app.get('/login', (req, res) => {
     if (req.session && req.session.userId) {
         return res.redirect('/dashboard');
     }
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.render('login', { title: 'Login', user: null, message: null });
 });
 

@@ -32,19 +32,23 @@ window.renderBillView = async function (container, idOrData) {
         // ── Build a SINGLE ordered column list ──
         // Each entry: { name, type, role, width }
         // role = 'sl' | 'data' | 'qty' | 'rate' | 'amount'
-        const allCols = [{ name: 'Sl.', type: 'serial', role: 'sl', width: 12 }];
+        const slCol = cols.find(c => c.col_type === 'sl') || { col_name: 'Sl.' };
+        const amountCol = cols.find(c => c.is_amount) || { col_name: 'Amount' };
+
+        const allCols = [{ name: slCol.col_name, type: 'serial', role: 'sl', width: 12 }];
 
         cols.forEach(c => {
+            if (c.col_type === 'sl' || c.is_amount) return;
             if (c.is_rate) {
                 allCols.push({ name: c.col_name, type: 'number', role: 'rate', width: 12 });
-            } else if (c.is_amount) {
-                allCols.push({ name: c.col_name, type: 'number', role: 'amount', width: 15 });
             } else if (c.is_qty) {
                 allCols.push({ name: c.col_name, type: 'number', role: 'qty', width: 12 });
             } else {
                 allCols.push({ name: c.col_name, type: c.col_type, role: 'data', width: 0 });
             }
         });
+
+        allCols.push({ name: amountCol.col_name + ' (₹)', type: 'number', role: 'amount', width: 15 });
 
         // Calculate text column widths (share remaining space)
         const fixedW = allCols.reduce((s, c) => s + c.width, 0);

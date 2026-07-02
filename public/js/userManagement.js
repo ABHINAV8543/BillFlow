@@ -19,13 +19,13 @@ window.renderUserManagement = async function (container) {
                     <h3 id="modal-title">Add New User</h3>
                     <button class="btn btn-icon" id="modal-close">&times;</button>
                 </div>
-                <form id="user-form" autocomplete="off">
+                <form id="user-form" autocomplete="off" novalidate>
                     <input type="hidden" id="edit-user-id" value="">
-                    <div class="form-group"><label class="form-label" for="user-username">Username *</label><input class="form-input" type="text" id="user-username" required></div>
-                    <div class="form-group"><label class="form-label" for="user-display-name">Display Name *</label><input class="form-input" type="text" id="user-display-name" required></div>
-                    <div class="form-group"><label class="form-label" for="user-email">Email</label><input class="form-input" type="email" id="user-email"></div>
-                    <div class="form-group"><label class="form-label" for="user-password">Password <span id="password-hint">*</span></label><input class="form-input" type="password" id="user-password"></div>
-                    <div class="form-group"><label class="form-label" for="user-role">Role *</label><select class="form-select form-input" id="user-role"><option value="user">User</option><option value="admin">Admin</option></select></div>
+                    <div class="form-group"><label class="form-label" for="user-username">Username *</label><input class="form-input" type="text" id="user-username" required><div class="invalid-feedback">Username is required.</div></div>
+                    <div class="form-group"><label class="form-label" for="user-display-name">Display Name *</label><input class="form-input" type="text" id="user-display-name" required><div class="invalid-feedback">Display name is required.</div></div>
+                    <div class="form-group"><label class="form-label" for="user-email">Email</label><input class="form-input" type="email" id="user-email"><div class="invalid-feedback">Please enter a valid email.</div></div>
+                    <div class="form-group"><label class="form-label" for="user-password">Password <span id="password-hint">*</span></label><input class="form-input" type="password" id="user-password"><div class="invalid-feedback">Password is required.</div></div>
+                    <div class="form-group"><label class="form-label" for="user-role">Role *</label><select class="form-select form-input" id="user-role" required><option value="user">User</option><option value="admin">Admin</option></select><div class="invalid-feedback">Role is required.</div></div>
                     <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 16px;">
                         <button type="button" class="btn btn-secondary" id="modal-cancel">Cancel</button>
                         <button type="submit" class="btn btn-primary" id="modal-submit">Create User</button>
@@ -56,11 +56,15 @@ window.renderUserManagement = async function (container) {
     const usernameField = document.getElementById('user-username');
 
     function openModal(mode, user) {
+        form.classList.remove('was-validated');
+        const pwdInput = document.getElementById('user-password');
         if (mode === 'add') {
             modalTitle.textContent = 'Add New User';
             modalSubmit.textContent = 'Create User';
             editIdField.value = '';
             usernameField.disabled = false;
+            document.getElementById('password-hint').style.display = 'inline';
+            pwdInput.setAttribute('required', 'required');
             form.reset();
         } else {
             modalTitle.textContent = 'Edit User';
@@ -70,7 +74,9 @@ window.renderUserManagement = async function (container) {
             usernameField.disabled = true;
             document.getElementById('user-display-name').value = user.display_name;
             document.getElementById('user-email').value = user.email || '';
-            document.getElementById('user-password').value = '';
+            document.getElementById('password-hint').style.display = 'none';
+            pwdInput.removeAttribute('required');
+            pwdInput.value = '';
             document.getElementById('user-role').value = user.role;
         }
         modal.style.display = 'flex';
@@ -134,6 +140,12 @@ window.renderUserManagement = async function (container) {
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        form.classList.add('was-validated');
+        if (!form.checkValidity()) {
+            e.stopPropagation();
+            return;
+        }
+
         const editId = editIdField.value;
         const isEdit = !!editId;
         const body = {
@@ -144,7 +156,6 @@ window.renderUserManagement = async function (container) {
         if (!isEdit) body.username = document.getElementById('user-username').value.trim();
         const pwd = document.getElementById('user-password').value;
         if (pwd) body.password = pwd;
-        else if (!isEdit) { showToast('Password required for new users.', 'error'); return; }
 
         try {
             const url = isEdit ? `/api/users/${editId}` : '/api/users';

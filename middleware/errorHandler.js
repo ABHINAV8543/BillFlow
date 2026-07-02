@@ -30,7 +30,7 @@ module.exports = (err, req, res, next) => {
     if (error.name === 'ValidationError') error = handleValidationErrorDB(error);
 
     // If it's an API request, return JSON
-    if (req.originalUrl.startsWith('/api')) {
+    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/auth/login')) {
         if (error.isOperational) {
             return res.status(error.statusCode).json({
                 status: error.status,
