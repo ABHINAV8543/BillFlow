@@ -5,6 +5,8 @@ const Client = require('../models/Client');
 const User = require('../models/User');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
+const validate = require('../middleware/validate');
+const { billSchema } = require('../validations/schemas');
 
 function numberToWords(num) {
     if (num === 0) return 'Zero Rupees Only';
@@ -189,7 +191,7 @@ router.get('/:id/edit', catchAsync(async (req, res, next) => {
  * Body: { client_id?, recipientData?, serial_number?, bill_date, lineItems,
  *         cgstRate, sgstRate, otherCharges, footerData, notes }
  */
-router.post('/', catchAsync(async (req, res, next) => {
+router.post('/', validate(billSchema), catchAsync(async (req, res, next) => {
         const {
             client_id, recipientData, billDate, cgstRate, sgstRate,
             otherCharges, footerData, notes, lineItems
@@ -197,12 +199,6 @@ router.post('/', catchAsync(async (req, res, next) => {
 
         if (!client_id && (!recipientData || !Object.values(recipientData).some(v => v))) {
             return next(new AppError('Recipient details are required', 400));
-        }
-        if (!lineItems || lineItems.length === 0) {
-            return next(new AppError('At least one line item is required', 400));
-        }
-        if (!billDate) {
-            return next(new AppError('Bill date is required', 400));
         }
 
         const userId = req.user._id;
@@ -280,7 +276,7 @@ router.post('/', catchAsync(async (req, res, next) => {
  * PUT /bills/:id
  * Update an existing bill.
  */
-router.put('/:id', catchAsync(async (req, res, next) => {
+router.put('/:id', validate(billSchema), catchAsync(async (req, res, next) => {
         const isAdmin = req.user.role === 'admin';
         const filter = { _id: req.params.id };
         if (!isAdmin) {
@@ -296,10 +292,6 @@ router.put('/:id', catchAsync(async (req, res, next) => {
             recipientData, billDate, cgstRate, sgstRate,
             otherCharges, footerData, notes, lineItems
         } = req.body;
-
-    if (!lineItems || lineItems.length === 0) {
-        return next(new AppError('At least one line item is required', 400));
-    }
 
         const userId = bill.user_id;
 

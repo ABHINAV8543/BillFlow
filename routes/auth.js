@@ -4,13 +4,11 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
+const validate = require('../middleware/validate');
+const { loginSchema } = require('../validations/schemas');
 
-router.post('/login', catchAsync(async (req, res, next) => {
+router.post('/login', validate(loginSchema), catchAsync(async (req, res, next) => {
     const { username, password } = req.body;
-
-    if (!username || !password) {
-        return next(new AppError('Username and password are required', 400));
-    }
 
     const user = await User.findOne({ username });
     if (!user) {

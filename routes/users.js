@@ -7,6 +7,8 @@ const Client = require('../models/Client');
 const { requireAdmin } = require('../middleware/auth');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
+const validate = require('../middleware/validate');
+const { createUserSchema, updateUserSchema } = require('../validations/schemas');
 
 // All routes in this file require admin
 router.use(requireAdmin);
@@ -28,16 +30,8 @@ router.get('/', catchAsync(async (req, res, next) => {
         });
 }));
 
-router.post('/', catchAsync(async (req, res, next) => {
+router.post('/', validate(createUserSchema), catchAsync(async (req, res, next) => {
     const { username, displayName, email, password, role } = req.body;
-
-    if (!username || !password || !displayName) {
-        return next(new AppError('Username, display name, and password are required', 400));
-    }
-
-    if (role && !['admin', 'user'].includes(role)) {
-        return next(new AppError('Role must be "admin" or "user"', 400));
-    }
 
     const existing = await User.findOne({ username });
     if (existing) {
@@ -63,7 +57,7 @@ router.post('/', catchAsync(async (req, res, next) => {
     res.status(201).json({ id: newUser._id, message: 'User created' });
 }));
 
-router.patch('/:id', catchAsync(async (req, res, next) => {
+router.patch('/:id', validate(updateUserSchema), catchAsync(async (req, res, next) => {
     const user = await User.findById(req.params.id);
     if (!user) return next(new AppError('User not found', 404));
 

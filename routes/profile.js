@@ -3,6 +3,8 @@ const router = express.Router();
 const User = require('../models/User');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
+const validate = require('../middleware/validate');
+const { updateProfileSchema, updateColumnsSchema, updateRecipientFieldsSchema, updateFooterFieldsSchema } = require('../validations/schemas');
 
 router.get('/', catchAsync(async (req, res, next) => {
         const fullUser = await User.findById(req.user._id);
@@ -26,7 +28,7 @@ router.get('/', catchAsync(async (req, res, next) => {
  * Update company detail fields on the user document.
  * Returns JSON (consumed by AJAX).
  */
-router.patch('/', catchAsync(async (req, res, next) => {
+router.patch('/', validate(updateProfileSchema), catchAsync(async (req, res, next) => {
         const body = req.body;
         const updates = {};
 
@@ -63,11 +65,8 @@ router.patch('/', catchAsync(async (req, res, next) => {
  * Body: { columns: [{ col_name, col_type, col_order, is_rate, is_qty, is_amount }] }
  * Returns JSON with updated columns.
  */
-router.put('/columns', catchAsync(async (req, res, next) => {
+router.put('/columns', validate(updateColumnsSchema), catchAsync(async (req, res, next) => {
     const { columns } = req.body;
-    if (!columns || !Array.isArray(columns)) {
-        return next(new AppError('columns array required', 400));
-    }
 
         const processed = columns.map((col, i) => ({
             col_name: col.col_name,
@@ -91,11 +90,8 @@ router.put('/columns', catchAsync(async (req, res, next) => {
  * Body: { fields: [{ field_name, field_order }] }
  * Returns JSON with updated fields.
  */
-router.put('/recipient-fields', catchAsync(async (req, res, next) => {
+router.put('/recipient-fields', validate(updateRecipientFieldsSchema), catchAsync(async (req, res, next) => {
     const { fields } = req.body;
-    if (!fields || !Array.isArray(fields)) {
-        return next(new AppError('fields array required', 400));
-    }
 
         const processed = fields.map((f, i) => ({
             field_name: f.field_name,
@@ -115,11 +111,8 @@ router.put('/recipient-fields', catchAsync(async (req, res, next) => {
  * Body: { fields: [{ field_name, field_order }] }
  * Returns JSON with updated fields.
  */
-router.put('/footer-fields', catchAsync(async (req, res, next) => {
+router.put('/footer-fields', validate(updateFooterFieldsSchema), catchAsync(async (req, res, next) => {
     const { fields } = req.body;
-    if (!fields || !Array.isArray(fields)) {
-        return next(new AppError('fields array required', 400));
-    }
 
         const processed = fields.map((f, i) => ({
             field_name: f.field_name,

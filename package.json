@@ -23,6 +23,7 @@
     "ejs": "^6.0.1",
     "express": "^4.21.0",
     "express-session": "^1.19.0",
+    "joi": "^18.2.3",
     "mongoose": "^9.7.3"
   }
 }
