@@ -167,7 +167,7 @@ window.renderBillForm = async function (container, editId) {
         dataCols.forEach(c => {
             const inputType = c.col_type === 'number' ? 'number' : 'text';
             const val = prefill ? (prefill.col_values[c.col_name] !== undefined ? prefill.col_values[c.col_name] : '') : '';
-            cells += `<td><input class="form-input" type="${inputType}" data-col="${c.col_name}" ${c.col_type === 'number' ? 'min="0" step="any"' : ''} placeholder="${c.col_name}" value="${String(val).replace(/"/g, '&quot;')}" required><div class="invalid-feedback">Required.</div></td>`;
+            cells += `<td><input class="form-input" type="${inputType}" data-col="${c.col_name}" ${c.col_type === 'number' ? 'min="0" step="any"' : ''} placeholder="${c.col_name}" value="${String(val).replace(/"/g, '&quot;')}"></td>`;
         });
 
         if (qtyCol) {
