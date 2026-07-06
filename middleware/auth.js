@@ -6,22 +6,10 @@ async function requireAuth(req, res, next) {
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
 
-    if (!req.session || !req.session.userId) {
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
         return res.redirect('/login');
     }
-
-    try {
-        const user = await User.findById(req.session.userId);
-        if (!user) {
-            req.session.destroy();
-            return res.redirect('/login');
-        }
-        req.user = user;
-        next();
-    } catch (err) {
-        console.error('Auth middleware error:', err);
-        res.redirect('/login');
-    }
+    next();
 }
 
 function requireAdmin(req, res, next) {

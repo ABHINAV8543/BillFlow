@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Bill = require('../models/Bill');
 const Client = require('../models/Client');
@@ -14,7 +13,7 @@ const { createUserSchema, updateUserSchema } = require('../validations/schemas')
 router.use(requireAdmin);
 
 router.get('/', catchAsync(async (req, res, next) => {
-    const users = await User.find({}).sort({ createdAt: 1 }).select('-password_hash');
+    const users = await User.find({}).sort({ createdAt: 1 }).select('-hash -salt');
         
         // If it's an API request, return JSON
         if (req.originalUrl.startsWith('/api')) {
@@ -38,13 +37,10 @@ router.post('/', validate(createUserSchema), catchAsync(async (req, res, next) =
         return next(new AppError('Username already exists', 409));
     }
 
-        const hash = bcrypt.hashSync(password, 10);
-        
-        const newUser = await User.create({
+        const newUser = new User({
             username,
             display_name: displayName,
             email: email || null,
-            password_hash: hash,
             role: role || 'user',
             created_by: req.user._id,
             bill_columns: [],
@@ -53,6 +49,8 @@ router.post('/', validate(createUserSchema), catchAsync(async (req, res, next) =
             default_cgst: 0,
             default_sgst: 0
         });
+        
+        await User.register(newUser, password);
 
     res.status(201).json({ id: newUser._id, message: 'User created' });
 }));
@@ -66,7 +64,7 @@ router.patch('/:id', validate(updateUserSchema), catchAsync(async (req, res, nex
         if (displayName) user.display_name = displayName;
         if (email !== undefined) user.email = email || null;
         if (role && ['admin', 'user'].includes(role)) user.role = role;
-        if (password) user.password_hash = bcrypt.hashSync(password, 10);
+        if (password) await user.setPassword(password);
 
     await user.save();
     res.json({ id: user._id, message: 'User updated' });

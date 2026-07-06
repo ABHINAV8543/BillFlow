@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const passportLocalMongoose = require('passport-local-mongoose').default || require('passport-local-mongoose');
 
 const bankDetailSchema = new mongoose.Schema({
     bank: { type: String },
@@ -27,10 +28,8 @@ const footerFieldSchema = new mongoose.Schema({
 }, { _id: false });
 
 const userSchema = new mongoose.Schema({
-    username: { type: String, required: true, unique: true },
     display_name: { type: String },
     email: { type: String },
-    password_hash: { type: String, required: true },
     role: { type: String, enum: ['admin', 'user'], default: 'user' },
 
     // Company profile
@@ -59,5 +58,7 @@ const userSchema = new mongoose.Schema({
     // Who created this user (null for self-created admins)
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 }, { timestamps: true });
+
+userSchema.plugin(passportLocalMongoose);
 
 module.exports = mongoose.model('User', userSchema);

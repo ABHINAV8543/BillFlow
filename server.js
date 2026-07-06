@@ -4,6 +4,9 @@ const cors = require('cors');
 const path = require('path');
 const session = require('express-session');
 const MongoStore = require('connect-mongo').default;
+const passport = require('passport');
+const LocalStrategy = require('passport-local');
+const User = require('./models/User');
 const { connectDB } = require('./db/connection');
 const { requireAuth, requireAdmin } = require('./middleware/auth');
 
@@ -48,6 +51,14 @@ app.use(session({
         sameSite: 'lax'
     }
 }));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.use(new LocalStrategy(User.authenticate()));
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
