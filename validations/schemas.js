@@ -35,6 +35,7 @@ const updateProfileSchema = Joi.object({
     company_subtitle: Joi.string().allow('', null),
     company_address: Joi.string().allow('', null),
     company_phones: Joi.string().allow('', null),
+    company_email: Joi.string().allow('', null),
     company_gstin: Joi.string().allow('', null),
     company_pan: Joi.string().allow('', null),
     company_wef: Joi.string().allow('', null),

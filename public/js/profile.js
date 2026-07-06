@@ -30,6 +30,10 @@ window.renderProfile = function (container, profile) {
                             <input type="text" class="form-input" id="p-company-phones" value="${profile.company_phones || ''}">
                         </div>
                         <div class="form-group">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" class="form-input" id="p-company-email" value="${profile.company_email || ''}">
+                        </div>
+                        <div class="form-group">
                             <label class="form-label">GSTIN</label>
                             <input type="text" class="form-input" id="p-company-gstin" value="${profile.company_gstin || ''}">
                         </div>
@@ -245,6 +249,7 @@ window.renderProfile = function (container, profile) {
                     company_subtitle: document.getElementById('p-company-subtitle').value.trim(),
                     company_address: document.getElementById('p-company-address').value.trim(),
                     company_phones: document.getElementById('p-company-phones').value.trim(),
+                    company_email: document.getElementById('p-company-email').value.trim(),
                     company_gstin: document.getElementById('p-company-gstin').value.trim(),
                     company_pan: document.getElementById('p-company-pan').value.trim(),
                     company_wef: document.getElementById('p-company-wef').value.trim(),

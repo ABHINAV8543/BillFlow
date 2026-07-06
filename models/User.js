@@ -39,6 +39,7 @@ const userSchema = new mongoose.Schema({
     company_subtitle: { type: String },
     company_address: { type: String },
     company_phones: { type: String },
+    company_email: { type: String },
     company_gstin: { type: String },
     company_pan: { type: String },
     company_wef: { type: String },

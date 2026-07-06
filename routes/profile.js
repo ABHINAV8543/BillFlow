@@ -39,7 +39,7 @@ router.patch('/', validate(updateProfileSchema), catchAsync(async (req, res, nex
 
         const fields = [
             'company_name', 'company_subtitle', 'company_address', 'company_phones',
-            'company_gstin', 'company_pan', 'company_wef', 'default_cgst', 'default_sgst'
+            'company_email', 'company_gstin', 'company_pan', 'company_wef', 'default_cgst', 'default_sgst'
         ];
         for (const f of fields) {
             if (body[f] !== undefined) {

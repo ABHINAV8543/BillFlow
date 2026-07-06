@@ -105,8 +105,9 @@ window.renderBillView = async function (container, idOrData) {
             `<div class="bill-field"><span class="bill-field-label">${k}:</span> <span>${v || ''}</span></div>`
         ).join('');
 
-        // Phone numbers
+        // Phone numbers and Email
         const phones = (o.company_phones || '').split(',').map(p => p.trim()).filter(Boolean);
+        const email = (o.company_email || '').trim();
 
         container.innerHTML = `
             <div class="invoice-actions">
@@ -124,6 +125,7 @@ window.renderBillView = async function (container, idOrData) {
                         ${o.company_subtitle ? `<div class="bill-subtitle">${o.company_subtitle}</div>` : ''}
                         ${o.company_address ? `<div class="bill-address">${o.company_address}</div>` : ''}
                         ${phones.length > 0 ? `<div class="bill-phones-center">Mob.: ${phones.join(', ')}</div>` : ''}
+                        ${email ? `<div class="bill-phones-center">Email: ${email}</div>` : ''}
                     </div>
                 </div>
 
