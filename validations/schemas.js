@@ -12,6 +12,7 @@ const loginSchema = Joi.object({
 });
 
 const billSchema = Joi.object({
+    serial_number: Joi.string().allow('', null),
     client_id: Joi.string().allow('', null),
     recipientData: Joi.object().unknown(true).allow(null),
     billDate: Joi.string().required().messages({

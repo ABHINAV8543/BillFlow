@@ -87,6 +87,10 @@ window.renderBillForm = async function (container, editId) {
                 <h3 class="form-section-label" style="margin-top:24px;">Bill Details</h3>
                 <div class="form-grid">
                     <div class="form-group">
+                        <label class="form-label">Bill No. (Leave blank for auto)</label>
+                        <input class="form-input" type="text" id="bill-serial" value="${isEdit ? existingBill.serial_number : ''}" placeholder="Auto-generated">
+                    </div>
+                    <div class="form-group">
                         <label class="form-label">Bill Date *</label>
                         <input class="form-input" type="date" id="bill-date" value="${isEdit ? existingBill.bill_date : today}" required>
                         <div class="invalid-feedback">Bill Date is required.</div>
@@ -302,6 +306,7 @@ window.renderBillForm = async function (container, editId) {
         }
 
         const payload = {
+            serial_number: document.getElementById('bill-serial').value.trim() || null,
             recipientData,
             billDate: document.getElementById('bill-date').value,
             cgstRate: document.getElementById('cgst-rate').value,

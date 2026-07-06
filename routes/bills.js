@@ -194,7 +194,7 @@ router.get('/:id/edit', catchAsync(async (req, res, next) => {
 router.post('/', validate(billSchema), catchAsync(async (req, res, next) => {
         const {
             client_id, recipientData, billDate, cgstRate, sgstRate,
-            otherCharges, footerData, notes, lineItems
+            otherCharges, footerData, notes, lineItems, serial_number
         } = req.body;
 
         if (!client_id && (!recipientData || !Object.values(recipientData).some(v => v))) {
@@ -247,7 +247,10 @@ router.post('/', validate(billSchema), catchAsync(async (req, res, next) => {
         const amountInWords = numberToWords(grandTotal / 100);
 
         // 3. Generate serial number
-        const serialNumber = await generateSerialNumber(userId);
+        let serialNumber = serial_number;
+        if (!serialNumber) {
+            serialNumber = await generateSerialNumber(userId);
+        }
 
         // 4. Create bill document
         const bill = await Bill.create({
@@ -290,7 +293,7 @@ router.put('/:id', validate(billSchema), catchAsync(async (req, res, next) => {
 
         const {
             recipientData, billDate, cgstRate, sgstRate,
-            otherCharges, footerData, notes, lineItems
+            otherCharges, footerData, notes, lineItems, serial_number
         } = req.body;
 
         const userId = bill.user_id;
@@ -336,6 +339,9 @@ router.put('/:id', validate(billSchema), catchAsync(async (req, res, next) => {
         const amountInWords = numberToWords(grandTotal / 100);
 
         // Update bill
+        if (serial_number) {
+            bill.serial_number = serial_number;
+        }
         bill.client_id = resolvedClientId;
         bill.bill_date = billDate || bill.bill_date;
         bill.subtotal = subtotal;
