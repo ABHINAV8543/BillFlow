@@ -69,7 +69,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/login', (req, res) => {
-    if (req.session && req.session.userId) {
+    if (req.isAuthenticated && req.isAuthenticated()) {
         return res.redirect('/dashboard');
     }
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
