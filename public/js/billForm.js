@@ -74,8 +74,8 @@ window.renderBillForm = async function (container, editId) {
         `<th style="width:130px">${amountCol.col_name} (₹)</th>` +
         '<th style="width:50px"></th>';
 
-    const formTitle = isEdit ? `Edit Bill #${existingBill.serial_number}` : 'Create New Bill';
-    const submitLabel = isEdit ? 'Update Bill' : 'Generate Bill';
+    const formTitle = isEdit ? `Edit Invoice #${existingBill.serial_number}` : 'Create New Invoice';
+    const submitLabel = isEdit ? 'Update Invoice' : 'Generate Invoice';
 
     container.innerHTML = `
         <div class="card" style="padding: 32px;">
@@ -87,7 +87,7 @@ window.renderBillForm = async function (container, editId) {
                 <h3 class="form-section-label" style="margin-top:24px;">Bill Details</h3>
                 <div class="form-grid">
                     <div class="form-group">
-                        <label class="form-label">Bill No. (Leave blank for auto)</label>
+                        <label class="form-label">Invoice Number (Leave blank for auto)</label>
                         <input class="form-input" type="text" id="bill-serial" value="${isEdit ? existingBill.serial_number : ''}" placeholder="Auto-generated">
                     </div>
                     <div class="form-group">

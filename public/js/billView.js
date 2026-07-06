@@ -145,7 +145,7 @@ window.renderBillView = async function (container, idOrData) {
                         ${recipientHTML}
                     </div>
                     <div class="bill-serial-box">
-                        <div class="bill-field"><span class="bill-field-label">Serial No.:</span> <span class="font-bold">${bill.serial_number}</span></div>
+                        <div class="bill-field"><span class="bill-field-label">Invoice No.:</span> <span class="font-bold">${bill.serial_number}</span></div>
                         <div class="bill-field"><span class="bill-field-label">Date:</span> <span>${formatDate(bill.bill_date)}</span></div>
                     </div>
                 </div>

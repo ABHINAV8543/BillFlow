@@ -56,12 +56,16 @@ function numberToWords(num) {
  */
 async function generateSerialNumber(userId) {
     const lastBill = await Bill.findOne({ user_id: userId }).sort({ _id: -1 });
-    let seq = 1;
-    if (lastBill) {
-        const n = parseInt(lastBill.serial_number, 10);
-        if (!isNaN(n)) seq = n + 1;
+    if (lastBill && lastBill.serial_number) {
+        const match = lastBill.serial_number.match(/(\d+)$/);
+        if (match) {
+            const numStr = match[1];
+            const nextNum = parseInt(numStr, 10) + 1;
+            const paddedNum = String(nextNum).padStart(numStr.length, '0');
+            return lastBill.serial_number.slice(0, -numStr.length) + paddedNum;
+        }
     }
-    return String(seq).padStart(3, '0');
+    return '001';
 }
 
 /**
