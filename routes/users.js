@@ -9,12 +9,12 @@ const { createUserSchema, updateUserSchema } = require('../validations/schemas')
 // All routes in this file require admin
 router.use(requireAdmin);
 
-router.get('/', catchAsync(usersController.getUsers));
+router.route('/')
+    .get(catchAsync(usersController.getUsers))
+    .post(validate(createUserSchema), catchAsync(usersController.createUser));
 
-router.post('/', validate(createUserSchema), catchAsync(usersController.createUser));
-
-router.patch('/:id', validate(updateUserSchema), catchAsync(usersController.updateUser));
-
-router.delete('/:id', catchAsync(usersController.deleteUser));
+router.route('/:id')
+    .patch(validate(updateUserSchema), catchAsync(usersController.updateUser))
+    .delete(catchAsync(usersController.deleteUser));
 
 module.exports = router;

@@ -5,21 +5,18 @@ const billsController = require('../controllers/billsController');
 const validate = require('../middleware/validate');
 const { billSchema } = require('../validations/schemas');
 
-router.get('/', catchAsync(billsController.getBills));
+router.route('/')
+    .get(catchAsync(billsController.getBills))
+    .post(validate(billSchema), catchAsync(billsController.createBill));
+
 
 router.get('/new', catchAsync(billsController.getNewBillForm));
 
-router.get('/:id', catchAsync(billsController.getBill));
-
 router.get('/:id/edit', catchAsync(billsController.getEditBillForm));
 
-
-// API ROUTES (return JSON for AJAX)
-
-router.post('/', validate(billSchema), catchAsync(billsController.createBill));
-
-router.put('/:id', validate(billSchema), catchAsync(billsController.updateBill));
-
-router.delete('/:id', catchAsync(billsController.deleteBill));
+router.route('/:id')
+    .get(catchAsync(billsController.getBill))
+    .put(validate(billSchema), catchAsync(billsController.updateBill))
+    .delete(catchAsync(billsController.deleteBill));
 
 module.exports = router;

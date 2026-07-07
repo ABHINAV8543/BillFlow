@@ -5,9 +5,9 @@ const profileController = require('../controllers/profileController');
 const validate = require('../middleware/validate');
 const { updateProfileSchema, updateColumnsSchema, updateRecipientFieldsSchema, updateFooterFieldsSchema } = require('../validations/schemas');
 
-router.get('/', catchAsync(profileController.getProfile));
-
-router.patch('/', validate(updateProfileSchema), catchAsync(profileController.updateProfile));
+router.route('/')
+    .get(catchAsync(profileController.getProfile))
+    .patch(validate(updateProfileSchema), catchAsync(profileController.updateProfile));
 
 router.put('/columns', validate(updateColumnsSchema), catchAsync(profileController.updateColumns));
 
