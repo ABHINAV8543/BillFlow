@@ -1,9 +1,5 @@
 const AppError = require('../utils/AppError');
 
-/**
- * Express middleware to validate request data using a Joi schema.
- * Returns all errors collectively (abortEarly: false).
- */
 const validate = (schema, property = 'body') => {
     return (req, res, next) => {
         const { error, value } = schema.validate(req[property], { abortEarly: false, stripUnknown: true });
