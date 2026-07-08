@@ -2,11 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const session = require('express-session');
-const MongoStore = require('connect-mongo').default;
-const passport = require('passport');
-const LocalStrategy = require('passport-local');
-const User = require('./models/User');
+const configureSession = require('./middleware/session');
 const { connectDB } = require('./db/connection');
 const { requireAuth, requireAdmin } = require('./middleware/auth');
 
@@ -22,43 +18,8 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session with MongoDB store
-const sessionStore = process.env.MONGODB_URI 
-    ? MongoStore.create({
-        mongoUrl: process.env.MONGODB_URI,
-        collectionName: 'sessions'
-    }) 
-    : undefined;
-
-if (sessionStore) {
-    sessionStore.on('error', function(error) {
-        console.error('MongoStore Session Error:', error);
-    });
-}
-
-if (!process.env.MONGODB_URI) {
-    console.error('CRITICAL: MONGODB_URI environment variable is not set. Falling back to MemoryStore.');
-}
-
-app.use(session({
-    secret: process.env.SESSION_SECRET || 'billflow-secret-key-change-in-production',
-    resave: false,
-    saveUninitialized: false,
-    store: sessionStore,
-    cookie: {
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        httpOnly: true,
-        sameSite: 'lax'
-    }
-}));
-
-// Initialize Passport
-app.use(passport.initialize());
-app.use(passport.session());
-
-passport.use(new LocalStrategy(User.authenticate()));
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+// Initialize Session and Passport
+configureSession(app);
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
@@ -104,7 +65,6 @@ app.use(globalErrorHandler);
 
 // Start server
 if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-    // Vercel serverless execution
     connectDB().catch(console.error);
 } else {
     // Local development execution
