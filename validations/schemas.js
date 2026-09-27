@@ -79,7 +79,8 @@ const createUserSchema = Joi.object({
     }),
     role: Joi.string().valid('admin', 'user').allow('', null).messages({
         'any.only': 'Role must be "admin" or "user"'
-    })
+    }),
+    bill_view_template: Joi.string().valid('template1', 'template2').allow('', null)
 });
 
 const updateUserSchema = Joi.object({
@@ -88,7 +89,8 @@ const updateUserSchema = Joi.object({
     password: Joi.string().allow('', null),
     role: Joi.string().valid('admin', 'user').allow('', null).messages({
         'any.only': 'Role must be "admin" or "user"'
-    })
+    }),
+    bill_view_template: Joi.string().valid('template1', 'template2').allow('', null)
 });
 
 module.exports = {

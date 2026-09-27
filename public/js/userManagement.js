@@ -26,6 +26,7 @@ window.renderUserManagement = async function (container) {
                     <div class="form-group"><label class="form-label" for="user-email">Email</label><input class="form-input" type="email" id="user-email"><div class="invalid-feedback">Please enter a valid email.</div></div>
                     <div class="form-group"><label class="form-label" for="user-password">Password <span id="password-hint">*</span></label><input class="form-input" type="password" id="user-password"><div class="invalid-feedback">Password is required.</div></div>
                     <div class="form-group"><label class="form-label" for="user-role">Role *</label><select class="form-select form-input" id="user-role" required><option value="user">User</option><option value="admin">Admin</option></select><div class="invalid-feedback">Role is required.</div></div>
+                    <div class="form-group"><label class="form-label" for="user-bill-template">Bill View UI *</label><select class="form-select form-input" id="user-bill-template" required><option value="template1">Template 1 (Standard)</option><option value="template2">Template 2 (Modern/Alternative)</option></select><div class="invalid-feedback">Template is required.</div></div>
                     <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 16px;">
                         <button type="button" class="btn btn-secondary" id="modal-cancel">Cancel</button>
                         <button type="submit" class="btn btn-primary" id="modal-submit">Create User</button>
@@ -66,6 +67,7 @@ window.renderUserManagement = async function (container) {
             document.getElementById('password-hint').style.display = 'inline';
             pwdInput.setAttribute('required', 'required');
             form.reset();
+            document.getElementById('user-bill-template').value = 'template1';
         } else {
             modalTitle.textContent = 'Edit User';
             modalSubmit.textContent = 'Save Changes';
@@ -78,6 +80,7 @@ window.renderUserManagement = async function (container) {
             pwdInput.removeAttribute('required');
             pwdInput.value = '';
             document.getElementById('user-role').value = user.role;
+            document.getElementById('user-bill-template').value = user.bill_view_template || 'template1';
         }
         modal.style.display = 'flex';
     }
@@ -152,6 +155,7 @@ window.renderUserManagement = async function (container) {
             displayName: document.getElementById('user-display-name').value.trim(),
             email: document.getElementById('user-email').value.trim() || null,
             role: document.getElementById('user-role').value,
+            bill_view_template: document.getElementById('user-bill-template').value,
         };
         if (!isEdit) body.username = document.getElementById('user-username').value.trim();
         const pwd = document.getElementById('user-password').value;

@@ -55,6 +55,9 @@ const userSchema = new mongoose.Schema({
     recipient_fields: [recipientFieldSchema],
     footer_fields: [footerFieldSchema],
 
+    // Bill View UI variant assigned by admin
+    bill_view_template: { type: String, enum: ['template1', 'template2'], default: 'template1' },
+
     // Who created this user (null for self-created admins)
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 }, { timestamps: true });

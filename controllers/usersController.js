@@ -21,7 +21,7 @@ exports.getUsers = async (req, res, next) => {
 };
 
 exports.createUser = async (req, res, next) => {
-    const { username, displayName, email, password, role } = req.body;
+    const { username, displayName, email, password, role, bill_view_template } = req.body;
 
     const existing = await User.findOne({ username });
     if (existing) {
@@ -33,6 +33,7 @@ exports.createUser = async (req, res, next) => {
         display_name: displayName,
         email: email || null,
         role: role || 'user',
+        bill_view_template: bill_view_template || 'template1',
         created_by: req.user._id,
         bill_columns: [],
         recipient_fields: [],
@@ -50,11 +51,12 @@ exports.updateUser = async (req, res, next) => {
     const user = await User.findById(req.params.id);
     if (!user) return next(new AppError('User not found', 404));
 
-    const { displayName, email, role, password } = req.body;
+    const { displayName, email, role, password, bill_view_template } = req.body;
 
     if (displayName) user.display_name = displayName;
     if (email !== undefined) user.email = email || null;
     if (role && ['admin', 'user'].includes(role)) user.role = role;
+    if (bill_view_template && ['template1', 'template2'].includes(bill_view_template)) user.bill_view_template = bill_view_template;
     if (password) await user.setPassword(password);
 
     await user.save();

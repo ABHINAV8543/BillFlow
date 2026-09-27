@@ -12,7 +12,11 @@
     billData.billColumns = <%- JSON.stringify(billColumns) %>;
 </script>
 
-<script src="/js/billView.js?v=3"></script>
+<% if (owner && owner.bill_view_template === 'template2') { %>
+    <script src="/js/billView2.js?v=4"></script>
+<% } else { %>
+    <script src="/js/billView.js?v=5"></script>
+<% } %>
 
 <script>
     // Initialize the view when the page loads
